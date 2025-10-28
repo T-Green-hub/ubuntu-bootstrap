@@ -19,7 +19,7 @@ EOT
 )
 
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
-need_sudo(){ [[ $EUID -ne 0 ]] && echo sudo || true; }
+need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 
 ensure_apt_conf(){
   if [[ ! -f "$APT_NET_CONF" ]]; then
