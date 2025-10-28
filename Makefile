@@ -11,7 +11,7 @@ SHELL := /bin/bash
 # allow recipes to start with '>' instead of a literal TAB
 .RECIPEPREFIX := >
 
-DIR := $(HOME)/code/ubuntu-bootstrap
+DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
 .PHONY: run verify base release help
 

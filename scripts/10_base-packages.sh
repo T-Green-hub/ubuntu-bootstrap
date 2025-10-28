@@ -4,7 +4,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-REQUIRED_PKGS=( curl git vim build-essential htop lm-sensors smartmontools nvme-cli )
+REQUIRED_PKGS=( curl git vim build-essential htop lm-sensors smartmontools nvme-cli psmisc )
 
 APT_NET_CONF="/etc/apt/apt.conf.d/98-bootstrap-net"
 APT_NET_BODY=$(cat <<'EOT'
