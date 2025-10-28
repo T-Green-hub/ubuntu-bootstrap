@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Quick verification: fstrim, SMART health, sensors, fstrim.timer.
-# - LVM-aware: resolves the physical disk behind /
-# - Uses smartctl -d nvme for NVMe devices
+# Verification: fstrim, SMART health, sensors, fstrim.timer (Ubuntu 24.04)
+# NVMe-safe SMART: try auto, then -d nvme, then -d nvme,1 (no stray spaces)
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -9,42 +8,26 @@ IFS=$'\n\t'
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 need_sudo(){ [[ $EUID -ne 0 ]] && echo sudo || true; }
 
-# Return the physical disk (e.g., /dev/nvme0n1 or /dev/sda) that backs /
 backing_disk() {
+  # Resolve the physical disk that backs /
   local src disk pk
   src="$(findmnt -no SOURCE / | xargs -r readlink -f || true)"
   [[ -z "${src:-}" ]] && src="/"
-
-  # Walk child->parents and grab the first 'disk'
   disk="$(lsblk -s -no TYPE,PATH "$src" 2>/dev/null | awk '$1=="disk"{print $2; exit}')"
-  if [[ -n "${disk:-}" ]]; then
-    echo "$disk"
-    return 0
-  fi
-
-  # Fallback via pkname of the source node
+  if [[ -n "${disk:-}" ]]; then echo "$disk"; return 0; fi
   pk="$(lsblk -no PKNAME "$src" 2>/dev/null | head -n1 || true)"
-  if [[ -n "${pk:-}" ]]; then
-    echo "/dev/$pk"
-    return 0
-  fi
-
-  # As a last resort, prefer first NVMe node if present, else /dev/sda
+  if [[ -n "${pk:-}" ]]; then echo "/dev/$pk"; return 0; fi
   if command -v nvme >/dev/null 2>&1; then
     local first_nvme
     first_nvme="$(nvme list 2>/dev/null | awk 'NR>2 && $1 ~ /^\/dev\/nvme/ {print $1; exit}')"
-    if [[ -n "${first_nvme:-}" ]]; then
-      echo "$first_nvme"
-      return 0
-    fi
+    [[ -n "${first_nvme:-}" ]] && { echo "$first_nvme"; return 0; }
   fi
-
   echo "/dev/sda"
 }
 
 trim_root(){
   if ! command -v fstrim >/dev/null 2>&1; then
-    log "fstrim not found."
+    log "fstrim not found; skipping."
     return 0
   fi
   log "Running fstrim on / (root)…"
@@ -60,35 +43,36 @@ smart_check(){
     log "smartctl not installed (smartmontools). Skipping."
     return 0
   fi
-  local dev driver
+  local dev rc=1
   dev="$(backing_disk)"
-  driver=""
-  [[ "$(basename "$dev")" =~ ^nvme ]] && driver="-d nvme"
   log "SMART health for $dev…"
-  if smartctl -H $driver "$dev"; then
-    log "SMART health summary done."
-  else
+
+  # try auto
+  if smartctl -H "$dev"; then rc=0; fi
+
+  # if auto failed, try NVMe variants explicitly (no leading spaces)
+  if (( rc != 0 )); then
+    if smartctl -H -d nvme "$dev"; then rc=0; fi
+  fi
+  if (( rc != 0 )); then
+    if smartctl -H -d nvme,1 "$dev"; then rc=0; fi
+  fi
+
+  if (( rc != 0 )); then
     log "SMART summary failed/unsupported."
   fi
 }
 
-nvme_brief(){
-  if command -v nvme >/dev/null 2>&1; then
-    log "NVMe list:"
-    nvme list || true
-  fi
-}
-
 sensors_brief(){
-  if command -v sensors >/dev/null 2>&1; then
-    log "Sensors snapshot:"
-    sensors || true
-  else
-    log "lm-sensors not installed."
+  if ! command -v sensors >/dev/null 2>&1; then
+    log "lm-sensors not installed; skipping sensors."
+    return 0
   fi
+  log "Sensors snapshot:"
+  sensors || true
 }
 
-fstrim_timer_status(){
+fstrim_timer(){
   log "fstrim.timer status:"
   systemctl list-timers fstrim.timer || true
 }
@@ -96,9 +80,8 @@ fstrim_timer_status(){
 main(){
   trim_root
   smart_check
-  nvme_brief
   sensors_brief
-  fstrim_timer_status
+  fstrim_timer
   log "Verification complete."
 }
 
