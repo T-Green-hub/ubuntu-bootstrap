@@ -1,0 +1,14 @@
+# Normalize line endings and ensure consistent text handling
+* text=auto
+
+# Explicit LF for scripts and markdown
+*.sh text eol=lf
+*.bash text eol=lf
+*.md  text eol=lf
+
+# Treat these as text for clean diffs
+*.service text
+*.timer   text
+*.conf    text
+*.rules   text
+*.env     text

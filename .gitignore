@@ -1,0 +1,49 @@
+# Base Linux/editor ignores
+*~
+*.swp
+*.swo
+*.tmp
+*.bak
+*.old
+*.orig
+Thumbs.db
+.DS_Store
+.trash/
+
+# Build/output caches
+.cache/
+dist/
+build/
+out/
+
+# Logs & artifacts
+logs/
+*.log
+*.tgz
+*.tar.gz
+*.zip
+*.deb
+*.iso
+
+# Python (if helpers later)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node (if tools later)
+node_modules/
+
+# Local editor/IDE files
+.vscode/
+.vscode-insiders/
+.idea/
+*.code-workspace
+
+# Safety: never commit private keys
+*.pem
+*.key
+id_ecdsa
+id_ed25519
+id_rsa
