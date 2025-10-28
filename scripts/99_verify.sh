@@ -10,7 +10,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
-need_sudo(){ [[ $EUID -ne 0 ]] && echo sudo || true; }
+need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 
 # Resolve the physical disk that backs /
 backing_disk() {

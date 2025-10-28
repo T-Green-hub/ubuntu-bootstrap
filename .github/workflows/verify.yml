@@ -16,11 +16,6 @@ jobs:
       - name: Run verify
         run: |
           set -euo pipefail
-          # Run verify-only if your combined runner exists
-          if [ -f "./scripts/run_bootstrap.sh" ]; then
-            echo "[i] Running run_bootstrap.sh --verify-only via bash"
-            bash ./scripts/run_bootstrap.sh --verify-only || true
-          fi
           # Canonical verify entrypoint (wrapper -> 99_verify.sh)
           if [ -f "./scripts/verify.sh" ]; then
             echo "[i] Running scripts/verify.sh"
