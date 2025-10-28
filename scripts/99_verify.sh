@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Quick verification: fstrim, SMART health, sensors, fstrim.timer.
 # - LVM-aware: resolves the physical disk behind /
-# - Uses smartctl -d nvme for NVMe devices when needed
+# - Uses smartctl -d nvme for NVMe devices
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -11,30 +11,34 @@ need_sudo(){ [[ $EUID -ne 0 ]] && echo sudo || true; }
 
 # Return the physical disk (e.g., /dev/nvme0n1 or /dev/sda) that backs /
 backing_disk() {
-  local src path
+  local src disk pk
   src="$(findmnt -no SOURCE / | xargs -r readlink -f || true)"
-  [[ -z "$src" ]] && src="/"
+  [[ -z "${src:-}" ]] && src="/"
 
   # Walk child->parents and grab the first 'disk'
-  path="$(lsblk -s -no PATH,TYPE "$src" 2>/dev/null | awk '$2=="disk"{print $1; exit}')"
-  if [[ -n "$path" ]]; then
-    echo "$path"
+  disk="$(lsblk -s -no TYPE,PATH "$src" 2>/dev/null | awk '$1=="disk"{print $2; exit}')"
+  if [[ -n "${disk:-}" ]]; then
+    echo "$disk"
     return 0
   fi
 
   # Fallback via pkname of the source node
-  local pk
   pk="$(lsblk -no PKNAME "$src" 2>/dev/null | head -n1 || true)"
-  if [[ -n "$pk" ]]; then
+  if [[ -n "${pk:-}" ]]; then
     echo "/dev/$pk"
     return 0
   fi
 
-  # As a last resort, prefer first NVMe if present, else /dev/sda
-  if command -v nvme >/dev/null 2>&1 && nvme list 2>/dev/null | awk 'NR>2{exit 0} END{exit 1}'; then
-    echo "$(nvme list 2>/dev/null | awk 'NR>2{print $1; exit}')"
-    return 0
+  # As a last resort, prefer first NVMe node if present, else /dev/sda
+  if command -v nvme >/dev/null 2>&1; then
+    local first_nvme
+    first_nvme="$(nvme list 2>/dev/null | awk 'NR>2 && $1 ~ /^\/dev\/nvme/ {print $1; exit}')"
+    if [[ -n "${first_nvme:-}" ]]; then
+      echo "$first_nvme"
+      return 0
+    fi
   fi
+
   echo "/dev/sda"
 }
 
@@ -42,7 +46,7 @@ trim_root(){
   if ! command -v fstrim >/dev/null 2>&1; then
     log "fstrim not found."
     return 0
-  }
+  fi
   log "Running fstrim on / (root)…"
   if $(need_sudo) fstrim -v /; then
     log "fstrim OK."
