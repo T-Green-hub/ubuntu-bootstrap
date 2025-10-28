@@ -9,27 +9,40 @@ IFS=$'\n\t'
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 need_sudo(){ [[ $EUID -ne 0 ]] && echo sudo || true; }
 
-# Return the block device (e.g., /dev/nvme0n1 or /dev/sda) that backs /
+# Return the physical disk (e.g., /dev/nvme0n1 or /dev/sda) that backs /
 backing_disk() {
-  local src phys
+  local src path
   src="$(findmnt -no SOURCE / | xargs -r readlink -f || true)"
-  # If it's an LVM mapper path, resolve the physical parent
-  phys="$(lsblk -no pkname "$src" 2>/dev/null | head -n1 || true)"
-  if [[ -n "$phys" ]]; then
-    echo "/dev/$phys"
+  [[ -z "$src" ]] && src="/"
+
+  # Walk child->parents and grab the first 'disk'
+  path="$(lsblk -s -no PATH,TYPE "$src" 2>/dev/null | awk '$2=="disk"{print $1; exit}')"
+  if [[ -n "$path" ]]; then
+    echo "$path"
     return 0
   fi
-  # Fallback: parse basename and strip partition digits
-  local base
-  base="$(basename "${src:-/dev/nvme0n1}" | sed -E 's/p?[0-9]+$//')"
-  [[ -n "$base" ]] && echo "/dev/$base" || echo "/dev/nvme0n1"
+
+  # Fallback via pkname of the source node
+  local pk
+  pk="$(lsblk -no PKNAME "$src" 2>/dev/null | head -n1 || true)"
+  if [[ -n "$pk" ]]; then
+    echo "/dev/$pk"
+    return 0
+  fi
+
+  # As a last resort, prefer first NVMe if present, else /dev/sda
+  if command -v nvme >/dev/null 2>&1 && nvme list 2>/dev/null | awk 'NR>2{exit 0} END{exit 1}'; then
+    echo "$(nvme list 2>/dev/null | awk 'NR>2{print $1; exit}')"
+    return 0
+  fi
+  echo "/dev/sda"
 }
 
 trim_root(){
   if ! command -v fstrim >/dev/null 2>&1; then
     log "fstrim not found."
     return 0
-  fi
+  }
   log "Running fstrim on / (root)…"
   if $(need_sudo) fstrim -v /; then
     log "fstrim OK."
@@ -43,13 +56,10 @@ smart_check(){
     log "smartctl not installed (smartmontools). Skipping."
     return 0
   fi
-  local dev driver arg
+  local dev driver
   dev="$(backing_disk)"
   driver=""
-  # Prefer -d nvme when device looks like NVMe
-  if [[ "$(basename "$dev")" =~ ^nvme ]]; then
-    driver="-d nvme"
-  fi
+  [[ "$(basename "$dev")" =~ ^nvme ]] && driver="-d nvme"
   log "SMART health for $dev…"
   if smartctl -H $driver "$dev"; then
     log "SMART health summary done."
