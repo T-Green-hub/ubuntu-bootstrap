@@ -1,0 +1,26 @@
+name: verify
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run verify
+        run: |
+          chmod +x scripts/*.sh || true
+          if [ -x "./scripts/run_bootstrap.sh" ]; then
+            echo "[i] Running run_bootstrap.sh --verify-only"
+            ./scripts/run_bootstrap.sh --verify-only || true
+          fi
+          if [ -x "./scripts/verify.sh" ]; then
+            ./scripts/verify.sh
+          else
+            echo "[!] scripts/verify.sh not found; skipped"
+          fi

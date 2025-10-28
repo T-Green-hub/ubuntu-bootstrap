@@ -13,4 +13,4 @@ make verify
 make base
 
 # Tag + GitHub release (requires 'gh auth login' once)
-make release TAG=v0.1.0
+make release TAG=v0.1.2

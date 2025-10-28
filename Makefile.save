@@ -3,8 +3,9 @@
 #   make run        # base packages + verification
 #   make verify     # verification only (fstrim, SMART, sensors, timer)
 #   make base       # base packages only
-#   make release TAG=v0.1.2  # create git tag + GitHub release
+#   make release TAG=v0.1.0  # create git tag + GitHub release
 
+# IMPORTANT: SHELL must be a single path (no spaces). /bin/bash works everywhere on Ubuntu.
 SHELL := /bin/bash
 .ONESHELL:
 .SHELLFLAGS := -euo pipefail -c
@@ -28,7 +29,7 @@ base: ## Only the base package setup
 > "$(DIR)/scripts/10_base-packages.sh"
 
 release: ## Tag + GitHub release. Usage: make release TAG=vX.Y.Z
-> if [[ -z "$$TAG" ]]; then echo "Set TAG, e.g.: make release TAG=v0.1.2"; exit 1; fi
+> if [[ -z "$$TAG" ]]; then echo "Set TAG, e.g.: make release TAG=v0.1.0"; exit 1; fi
 > git fetch --tags
 > git tag -a "$$TAG" -m "$$TAG — bootstrap base+verify"
 > git push origin "$$TAG"
