@@ -5,6 +5,9 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../hardware/common.sh"
+
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 
@@ -47,8 +50,8 @@ disable_telemetry(){
 setup_firewall(){
   if ! command -v ufw >/dev/null 2>&1; then
     log "Installing UFW firewall…"
-    $(need_sudo) apt-get update -qq
-    $(need_sudo) apt-get install -y ufw
+    apt_safe update -qq
+    apt_safe install -y ufw
   fi
   
   log "Configuring UFW firewall…"

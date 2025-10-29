@@ -5,6 +5,9 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../hardware/common.sh"
+
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 
@@ -74,8 +77,8 @@ install_repo_tools(){
   
   if ((${#to_install[@]})); then
     log "Installing repository tools: ${to_install[*]}"
-    $(need_sudo) apt-get update -qq
-    $(need_sudo) apt-get install -y "${to_install[@]}"
+    apt_safe update -qq
+    apt_safe install -y "${to_install[@]}"
   else
     log "Repository tools already installed."
   fi

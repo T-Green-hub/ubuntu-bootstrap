@@ -5,6 +5,9 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../hardware/common.sh"
+
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 
@@ -28,8 +31,8 @@ install_microcode(){
     log "Microcode already installed: $pkg"
   else
     log "Installing $vendor CPU microcode: $pkg"
-    $(need_sudo) apt-get update -qq
-    $(need_sudo) apt-get install -y "$pkg"
+    apt_safe update -qq
+    apt_safe install -y "$pkg"
     log "Microcode installed. Reboot recommended to apply."
   fi
 }
@@ -48,7 +51,7 @@ install_wireless(){
   
   if ((${#to_install[@]})); then
     log "Installing wireless firmware: ${to_install[*]}"
-    $(need_sudo) apt-get install -y "${to_install[@]}"
+    apt_safe install -y "${to_install[@]}"
   else
     log "Wireless firmware already installed."
   fi
@@ -67,7 +70,7 @@ install_bluetooth(){
   
   if ((${#to_install[@]})); then
     log "Installing Bluetooth support: ${to_install[*]}"
-    $(need_sudo) apt-get install -y "${to_install[@]}"
+    apt_safe install -y "${to_install[@]}"
   else
     log "Bluetooth already installed."
   fi
@@ -100,7 +103,7 @@ install_graphics(){
   
   if ((${#to_install[@]})); then
     log "Installing graphics drivers: ${to_install[*]}"
-    $(need_sudo) apt-get install -y "${to_install[@]}" 2>/dev/null || {
+    apt_safe install -y "${to_install[@]}" 2>/dev/null || {
       log "Some graphics packages unavailable (non-free repo may be needed)."
     }
   else
@@ -124,7 +127,7 @@ install_laptop_support(){
   
   if ((${#to_install[@]})); then
     log "Installing laptop support: ${to_install[*]}"
-    $(need_sudo) apt-get install -y "${to_install[@]}"
+    apt_safe install -y "${to_install[@]}"
   else
     log "Laptop support already installed."
   fi
