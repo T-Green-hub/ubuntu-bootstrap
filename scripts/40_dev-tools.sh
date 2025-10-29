@@ -30,7 +30,9 @@ install_docker(){
   # Add Docker's official GPG key
   $(need_sudo) install -m 0755 -d /etc/apt/keyrings
   if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | $(need_sudo) gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
+      https://download.docker.com/linux/ubuntu/gpg | \
+      $(need_sudo) gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     $(need_sudo) chmod a+r /etc/apt/keyrings/docker.gpg
   fi
   
@@ -62,7 +64,8 @@ install_nodejs(){
     log "nvm already installed at $NVM_DIR"
   else
     log "Installing nvm (Node Version Manager)…"
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
+      -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     
     # Source nvm for this session
     export NVM_DIR="$HOME/.nvm"
@@ -101,7 +104,7 @@ install_python(){
     libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
   
   log "Installing pyenv…"
-  curl https://pyenv.run | bash
+  curl --retry 3 --retry-delay 2 --connect-timeout 10 https://pyenv.run | bash
   
   # Add to shell profile if not present
   local profile="$HOME/.bashrc"
@@ -127,7 +130,8 @@ install_rust(){
   fi
   
   log "Installing Rust via rustup…"
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  curl --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --connect-timeout 10 \
+    -sSf https://sh.rustup.rs | sh -s -- -y
   
   # Source cargo env
   if [[ -f "$HOME/.cargo/env" ]]; then
@@ -146,10 +150,18 @@ install_go(){
   log "Installing Go…"
   local GO_VERSION="1.21.4"
   local GO_TAR="go${GO_VERSION}.linux-amd64.tar.gz"
+  local GO_INSTALL_DIR="/usr/local/go"
   
   cd /tmp
-  curl -LO "https://go.dev/dl/${GO_TAR}"
-  $(need_sudo) rm -rf /usr/local/go
+  curl -LO --retry 3 --retry-delay 2 --connect-timeout 10 \
+    "https://go.dev/dl/${GO_TAR}"
+  
+  # Safety check before rm -rf
+  if [[ -d "$GO_INSTALL_DIR" ]]; then
+    log "Removing existing Go installation at $GO_INSTALL_DIR…"
+    $(need_sudo) rm -rf "$GO_INSTALL_DIR"
+  fi
+  
   $(need_sudo) tar -C /usr/local -xzf "$GO_TAR"
   rm "$GO_TAR"
   
@@ -179,7 +191,9 @@ install_vscode(){
   log "Installing VS Code…"
   
   # Add Microsoft GPG key
-  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | $(need_sudo) tee /usr/share/keyrings/packages.microsoft.gpg > /dev/null
+  curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
+    https://packages.microsoft.com/keys/microsoft.asc | \
+    gpg --dearmor | $(need_sudo) tee /usr/share/keyrings/packages.microsoft.gpg > /dev/null
   
   # Add repository
   echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | \

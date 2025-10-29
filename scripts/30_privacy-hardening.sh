@@ -127,7 +127,10 @@ additional_privacy(){
   # Disable system error reports
   if [[ -d /var/crash ]]; then
     log "Cleaning /var/crash…"
-    $(need_sudo) rm -rf /var/crash/* 2>/dev/null || true
+    # Safety: only clean if directory exists and is the expected path
+    if [[ "$(readlink -f /var/crash)" == "/var/crash" ]]; then
+      $(need_sudo) rm -rf /var/crash/* 2>/dev/null || true
+    fi
   fi
   
   # Disable whoopsie (Ubuntu error reporting daemon)

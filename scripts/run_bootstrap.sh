@@ -14,6 +14,31 @@ declare -a SKIP_SCRIPTS=()
 
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 
+# Network connectivity preflight
+check_network() {
+  log "Checking network connectivity…"
+  
+  # Try multiple DNS servers
+  local test_hosts=("1.1.1.1" "8.8.8.8" "github.com")
+  local connected=0
+  
+  for host in "${test_hosts[@]}"; do
+    if ping -c 1 -W 2 "$host" >/dev/null 2>&1; then
+      log "✓ Network OK (reached $host)"
+      connected=1
+      break
+    fi
+  done
+  
+  if (( connected == 0 )); then
+    log "ERROR: No network connectivity detected. Please check your connection."
+    log "Tested: ${test_hosts[*]}"
+    return 1
+  fi
+  
+  return 0
+}
+
 # Optional per-run logging directory (defaults to repo logs/<timestamp>)
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 if [[ -z "${LOG_DIR:-}" ]]; then
@@ -165,6 +190,14 @@ fi
 
 log "Bootstrap sequence: ${#scripts[@]} scripts"
 echo ""
+
+# Network preflight (skip in dry-run)
+if [[ $DRY_RUN -eq 0 ]]; then
+  if ! check_network; then
+    log "Network check failed. Bootstrap requires internet connectivity."
+    exit 1
+  fi
+fi
 
 # Guard against apt/dpkg locks from background services for the duration of the run
 setup_apt_guard
