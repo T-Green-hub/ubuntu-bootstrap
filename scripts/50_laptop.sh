@@ -27,7 +27,7 @@ detect_hardware() {
     local hardware_id="${vendor}-${model}"
     
     case "${hardware_id}" in
-        *lenovo*thinkpad*t14*|*lenovo*20w4*|*lenovo*20w5*)
+        *lenovo*thinkpad*t14*|*lenovo*20w4*|*lenovo*20w5*|*lenovo*20wn*)
             echo "thinkpad-t14"
             ;;
         *hp*15*|*hp*laptop*15*)

@@ -70,6 +70,7 @@ install_nodejs(){
   # Source nvm if available
   export NVM_DIR="$HOME/.nvm"
   if [ -s "$NVM_DIR/nvm.sh" ]; then
+      set +u
     \. "$NVM_DIR/nvm.sh"
     
     # Install Node LTS if not present
@@ -81,6 +82,7 @@ install_nodejs(){
     else
       log "Node.js already installed: $(node --version)"
     fi
+      set -u
   fi
 }
 

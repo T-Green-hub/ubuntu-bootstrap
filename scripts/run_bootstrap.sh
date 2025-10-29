@@ -144,12 +144,17 @@ if [[ ${#SKIPPED_SCRIPTS[@]} -gt 0 ]]; then
 fi
 
 if [[ ${#FAILED_SCRIPTS[@]} -gt 0 ]]; then
-  log "Failed: ${#FAILED_SCRIPTS[@]}"
+  log "Failed (non-critical): ${#FAILED_SCRIPTS[@]}"
   for script in "${FAILED_SCRIPTS[@]}"; do
     log "  ✗ $script"
   done
   log "bootstrap completed with warnings."
-  exit 1
+  # By default, treat warnings as success; set STRICT=1 to fail on warnings
+  if [[ "${STRICT:-0}" -eq 1 ]]; then
+    exit 1
+  else
+    exit 0
+  fi
 else
   if [[ $DRY_RUN -eq 1 ]]; then
     log "bootstrap dry-run complete!"
