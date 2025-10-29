@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck (scripts/ and hardware/)
+        run: |
+          shellcheck --version
+          shellcheck -x scripts/*.sh hardware/*.sh
+        continue-on-error: true
+
+      - name: Install shfmt
+        run: |
+          sudo apt-get install -y golang-go
+          go install mvdan.cc/sh/v3/cmd/shfmt@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Run shfmt (check diff)
+        run: |
+          shfmt -version
+          # Check formatting (no changes), show diff if needed
+          shfmt -d .
+        continue-on-error: true

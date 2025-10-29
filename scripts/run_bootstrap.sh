@@ -13,6 +13,31 @@ declare -a SKIP_SCRIPTS=()
 
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 
+# Optional per-run logging directory (defaults to repo logs/<timestamp>)
+TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+if [[ -z "${LOG_DIR:-}" ]]; then
+  # default to repo logs dir; fall back to no logging if creation fails
+  DEFAULT_LOG_DIR="$REPO_DIR/logs/$TIMESTAMP"
+  if mkdir -p "$DEFAULT_LOG_DIR" 2>/dev/null; then
+    LOG_DIR="$DEFAULT_LOG_DIR"
+  else
+    LOG_DIR=""
+  fi
+else
+  # Respect user-provided LOG_DIR; attempt to create if missing
+  if ! mkdir -p "$LOG_DIR" 2>/dev/null; then
+    log "Logging disabled: cannot create LOG_DIR='$LOG_DIR'"
+    LOG_DIR=""
+  fi
+fi
+
+log_file_for_script() {
+  local script_name="$1"
+  local script_num="${script_name:0:2}"
+  local base="${script_name%.sh}"
+  echo "$LOG_DIR/${script_num}_${base}.log"
+}
+
 # Global dpkg/apt lock wait to avoid cross-script contention
 wait_for_dpkg_lock() {
   local timeout="${1:-180}"
@@ -36,6 +61,49 @@ wait_for_dpkg_lock() {
     if (( waited == 0 )); then log "Waiting for dpkg/apt lock to be released…"; fi
     sleep 2; waited=$((waited+2))
     if (( waited >= timeout )); then log "Timeout waiting for dpkg lock after ${timeout}s; proceeding anyway."; break; fi
+  done
+}
+
+# Temporarily stop services that commonly hold apt/dpkg locks
+setup_apt_guard() {
+  local units=(
+    packagekit.service
+    unattended-upgrades.service
+    apt-daily.service
+    apt-daily-upgrade.service
+    apt-daily.timer
+    apt-daily-upgrade.timer
+  )
+  log "Applying apt/dpkg lock guard: stopping PackageKit and unattended-upgrades timers/services temporarily"
+  for u in "${units[@]}"; do
+    if systemctl list-unit-files | awk '{print $1}' | grep -qx "$u"; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "  [DRY RUN] Would stop $u"
+      else
+        sudo systemctl stop "$u" >/dev/null 2>&1 || true
+      fi
+    fi
+  done
+}
+
+restore_apt_guard() {
+  local units=(
+    apt-daily.timer
+    apt-daily-upgrade.timer
+    apt-daily.service
+    apt-daily-upgrade.service
+    unattended-upgrades.service
+    packagekit.service
+  )
+  log "Restoring apt/dpkg services/timers (best effort)"
+  for u in "${units[@]}"; do
+    if systemctl list-unit-files | awk '{print $1}' | grep -qx "$u"; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "  [DRY RUN] Would start $u"
+      else
+        sudo systemctl start "$u" >/dev/null 2>&1 || true
+      fi
+    fi
   done
 }
 
@@ -89,6 +157,10 @@ fi
 log "Bootstrap sequence: ${#scripts[@]} scripts"
 echo ""
 
+# Guard against apt/dpkg locks from background services for the duration of the run
+setup_apt_guard
+trap restore_apt_guard EXIT
+
 for i in "${!scripts[@]}"; do
   script="${scripts[$i]}"
   script_name=$(basename "$script")
@@ -108,13 +180,32 @@ for i in "${!scripts[@]}"; do
   # Best-effort wait to avoid apt/dpkg lock contention between scripts
   wait_for_dpkg_lock 180
   
+  success_label="$script_name"
   if [[ $DRY_RUN -eq 1 ]]; then
     log "  [DRY RUN] Would execute: bash $script"
-    SUCCESS_SCRIPTS+=("$script_name (dry-run)")
-  elif bash "$script"; then
-    SUCCESS_SCRIPTS+=("$script_name")
+    # Optionally record dry-run in logfile
+    if [[ -n "$LOG_DIR" ]]; then
+      printf '[%s] [DRY RUN] Would execute: %s\n' "$(date -Iseconds)" "$script" >> "$(log_file_for_script "$script_name")" || true
+    fi
+    success_label="$script_name (dry-run)"
+    exit_code=0
   else
-    exit_code=$?
+    # Execute with optional tee logging
+    if [[ -n "$LOG_DIR" ]]; then
+      logfile="$(log_file_for_script "$script_name")"
+      log "  Logging to: $logfile"
+      set +e
+      bash "$script" 2>&1 | tee -a "$logfile"
+      exit_code=${PIPESTATUS[0]}
+      set -e
+    else
+      if bash "$script"; then exit_code=0; else exit_code=$?; fi
+    fi
+  fi
+
+  if (( exit_code == 0 )); then
+    SUCCESS_SCRIPTS+=("$success_label")
+  else
     log "ERROR: $script_name failed with exit code $exit_code"
     FAILED_SCRIPTS+=("$script_name")
     
