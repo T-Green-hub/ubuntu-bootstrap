@@ -84,8 +84,10 @@ main() {
         log "---"
         log "Hardware optimization complete"
     else
-        log "WARNING: Profile script not found: ${profile_script}"
-        log "Skipping hardware-specific optimizations"
+        log "ERROR: Profile script not found: ${profile_script}"
+        log "Available profiles: thinkpad-t14, hp-laptop-15, generic"
+        log "Override with: HARDWARE_PROFILE=generic bash $0"
+        exit 1
     fi
     
     log "=== Hardware Optimization Complete ==="

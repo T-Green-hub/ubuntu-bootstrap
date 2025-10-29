@@ -2,6 +2,7 @@
 # Complete bootstrap runner (idempotent).
 # Auto-discovers and runs all numbered scripts in order, then verification.
 # Usage: ./run_bootstrap.sh [--dry-run] [--skip-script=NN]
+# Version: 0.2.0
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -120,11 +121,19 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --help)
+      echo "ubuntu-bootstrap runner v0.2.0"
       echo "Usage: $0 [OPTIONS]"
+      echo ""
       echo "Options:"
       echo "  --dry-run           Show what would be done without making changes"
       echo "  --skip-script=NN    Skip a specific script (e.g., --skip-script=40)"
       echo "  --help              Show this help message"
+      echo ""
+      echo "Environment Variables:"
+      echo "  DRY_RUN=1           Enable dry-run mode"
+      echo "  LOG_DIR=/path       Override log directory (default: logs/<timestamp>)"
+      echo "  STRICT=1            Fail on non-critical warnings (default: exit 0)"
+      echo ""
       exit 0
       ;;
     *)

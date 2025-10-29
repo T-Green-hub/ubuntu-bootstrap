@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Ubuntu 24.04 development tools installation (idempotent).
 # Docker, Node.js, Python, Rust, Go, VS Code, and essential dev utilities.
+# Note: This is a monolithic script; for fine-grained control, consider
+# splitting into 41_docker.sh, 42_node.sh, 43_python.sh, etc.
 
 set -euo pipefail
 IFS=$'\n\t'

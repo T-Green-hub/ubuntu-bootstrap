@@ -1,9 +1,10 @@
 # Minimal convenience targets for ubuntu-bootstrap
 # Usage:
-#   make run        # base packages + verification
+#   make run        # full bootstrap (base packages + hardware + verification)
 #   make verify     # verification only (fstrim, SMART, sensors, timer)
 #   make base       # base packages only
-#   make release TAG=v0.1.2  # create git tag + GitHub release
+#   make lint       # lint scripts with shellcheck (requires shellcheck installed)
+#   make release TAG=v0.2.0  # create git tag + GitHub release
 
 SHELL := /bin/bash
 .ONESHELL:
@@ -26,6 +27,13 @@ verify: ## Only the verification (trim, SMART, sensors, timer)
 
 base: ## Only the base package setup
 > "$(DIR)/scripts/10_base-packages.sh"
+
+lint: ## Lint scripts with shellcheck (requires shellcheck)
+> @if ! command -v shellcheck >/dev/null 2>&1; then \
+>   echo "shellcheck not found. Install: sudo apt install shellcheck"; \
+>   exit 1; \
+> fi
+> shellcheck -x scripts/*.sh hardware/*.sh
 
 release: ## Tag + GitHub release. Usage: make release TAG=vX.Y.Z
 > if [[ -z "$$TAG" ]]; then echo "Set TAG, e.g.: make release TAG=v0.1.2"; exit 1; fi
