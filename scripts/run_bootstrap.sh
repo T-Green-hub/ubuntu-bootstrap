@@ -17,11 +17,11 @@ log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 # Network connectivity preflight
 check_network() {
   log "Checking network connectivity…"
-  
+
   # Try multiple DNS servers
   local test_hosts=("1.1.1.1" "8.8.8.8" "github.com")
   local connected=0
-  
+
   for host in "${test_hosts[@]}"; do
     if ping -c 1 -W 2 "$host" >/dev/null 2>&1; then
       log "✓ Network OK (reached $host)"
@@ -29,13 +29,13 @@ check_network() {
       break
     fi
   done
-  
+
   if (( connected == 0 )); then
     log "ERROR: No network connectivity detected. Please check your connection."
     log "Tested: ${test_hosts[*]}"
     return 1
   fi
-  
+
   return 0
 }
 
@@ -175,7 +175,7 @@ declare -a SKIPPED_SCRIPTS=()
 
 # Collect all numbered scripts (00-99) that are non-empty
 mapfile -t scripts < <(
-  find "$SCRIPTS_DIR" -maxdepth 1 -name '[0-9][0-9]_*.sh' -type f | 
+  find "$SCRIPTS_DIR" -maxdepth 1 -name '[0-9][0-9]_*.sh' -type f |
   while read -r script; do
     if [[ -s "$script" ]]; then  # Only include non-empty files
       echo "$script"
@@ -209,19 +209,27 @@ for i in "${!scripts[@]}"; do
   script_num="${script_name:0:2}"  # Extract NN from NN_name.sh
   step=$((i + 1))
   total=${#scripts[@]}
-  
+
   # Check if this script should be skipped
-  if [[ " ${SKIP_SCRIPTS[*]} " =~ " ${script_num} " ]]; then
+  # Check if this script number is in the SKIP_SCRIPTS array
+  skip_this=0
+  for s in "${SKIP_SCRIPTS[@]}"; do
+    if [[ "$s" == "$script_num" ]]; then
+      skip_this=1
+      break
+    fi
+  done
+  if [[ $skip_this -eq 1 ]]; then
     log "[$step/$total] Skipping $script_name (--skip-script=$script_num)"
     SKIPPED_SCRIPTS+=("$script_name")
     echo ""
     continue
   fi
-  
+
   log "[$step/$total] Running $script_name…"
   # Best-effort wait to avoid apt/dpkg lock contention between scripts
   wait_for_dpkg_lock 180
-  
+
   success_label="$script_name"
   if [[ $DRY_RUN -eq 1 ]]; then
     log "  [DRY RUN] Would execute: bash $script"
@@ -250,7 +258,7 @@ for i in "${!scripts[@]}"; do
   else
     log "ERROR: $script_name failed with exit code $exit_code"
     FAILED_SCRIPTS+=("$script_name")
-    
+
     # Exit on critical failures (exit codes 1-10 are critical)
     if (( exit_code <= 10 )); then
       log "CRITICAL FAILURE - stopping bootstrap."

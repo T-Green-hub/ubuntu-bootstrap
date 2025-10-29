@@ -15,7 +15,7 @@ need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 install_microcode(){
   local vendor cpu_info
   cpu_info="$(lscpu | grep 'Vendor ID' || true)"
-  
+
   if [[ "$cpu_info" =~ GenuineIntel ]]; then
     vendor="intel"
   elif [[ "$cpu_info" =~ AuthenticAMD ]]; then
@@ -24,9 +24,9 @@ install_microcode(){
     log "Unknown CPU vendor, skipping microcode."
     return 0
   fi
-  
+
   local pkg="${vendor}-microcode"
-  
+
   if dpkg -s "$pkg" >/dev/null 2>&1; then
     log "Microcode already installed: $pkg"
   else
@@ -41,14 +41,14 @@ install_microcode(){
 install_wireless(){
   local pkgs=( linux-firmware )
   local to_install=()
-  
+
   # linux-firmware includes Intel WiFi (iwlwifi), Bluetooth, and more
   for pkg in "${pkgs[@]}"; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
       to_install+=("$pkg")
     fi
   done
-  
+
   if ((${#to_install[@]})); then
     log "Installing wireless firmware: ${to_install[*]}"
     apt_safe install -y "${to_install[@]}"
@@ -61,20 +61,20 @@ install_wireless(){
 install_bluetooth(){
   local pkgs=( bluez bluez-tools )
   local to_install=()
-  
+
   for pkg in "${pkgs[@]}"; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
       to_install+=("$pkg")
     fi
   done
-  
+
   if ((${#to_install[@]})); then
     log "Installing Bluetooth support: ${to_install[*]}"
     apt_safe install -y "${to_install[@]}"
   else
     log "Bluetooth already installed."
   fi
-  
+
   # Ensure Bluetooth service is enabled
   if systemctl is-enabled bluetooth.service >/dev/null 2>&1; then
     log "Bluetooth service already enabled."
@@ -94,13 +94,13 @@ install_graphics(){
     vulkan-tools
   )
   local to_install=()
-  
+
   for pkg in "${pkgs[@]}"; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
       to_install+=("$pkg")
     fi
   done
-  
+
   if ((${#to_install[@]})); then
     log "Installing graphics drivers: ${to_install[*]}"
     apt_safe install -y "${to_install[@]}" 2>/dev/null || {
@@ -115,16 +115,16 @@ install_graphics(){
 install_laptop_support(){
   local pkgs=( acpid )
   local to_install=()
-  
-  # Note: laptop-mode-tools conflicts with TLP (installed in 50_laptop-t14s.sh)
+
+  # Note: laptop-mode-tools conflicts with TLP (installed in 50_laptop.sh)
   # So we only install acpid here
-  
+
   for pkg in "${pkgs[@]}"; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
       to_install+=("$pkg")
     fi
   done
-  
+
   if ((${#to_install[@]})); then
     log "Installing laptop support: ${to_install[*]}"
     apt_safe install -y "${to_install[@]}"
@@ -136,7 +136,7 @@ install_laptop_support(){
 # Verification: check loaded modules and firmware
 verify_drivers(){
   log "Verifying driver status…"
-  
+
   # Check WiFi
   if lspci | grep -qi "network.*intel"; then
     if lsmod | grep -q "iwlwifi"; then
@@ -145,14 +145,14 @@ verify_drivers(){
       log "⚠ Intel WiFi detected but driver not loaded."
     fi
   fi
-  
+
   # Check Bluetooth
   if systemctl is-active bluetooth.service >/dev/null 2>&1; then
     log "✓ Bluetooth service active."
   else
     log "⚠ Bluetooth service not active."
   fi
-  
+
   # Check graphics
   if command -v vulkaninfo >/dev/null 2>&1; then
     log "✓ Vulkan tools installed."

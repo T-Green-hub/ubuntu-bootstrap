@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Common functions for laptop hardware optimization
 
+set -euo pipefail
+
 log() {
     printf '[%s] %s\n' "$(date -Iseconds)" "$*"
 }
@@ -116,13 +118,13 @@ supports_charge_thresholds() {
 install_tlp() {
     local start_threshold="${1:-20}"
     local stop_threshold="${2:-80}"
-    
+
     # Check if laptop-mode-tools is installed (conflicts with TLP)
     if is_installed laptop-mode-tools; then
         log "Removing laptop-mode-tools (conflicts with TLP)…"
         apt_safe remove -y laptop-mode-tools || true
     fi
-    
+
     if is_installed tlp; then
         log "TLP already installed"
     else
@@ -130,18 +132,18 @@ install_tlp() {
         apt_safe update -qq
         apt_safe install -y tlp tlp-rdw
     fi
-    
+
     # Enable TLP service
     if ! $(need_sudo) systemctl is-enabled tlp.service &>/dev/null; then
         log "Enabling TLP service..."
         run $(need_sudo) systemctl enable tlp.service || true
         run $(need_sudo) systemctl start tlp.service || true
     fi
-    
+
     # Configure battery thresholds if supported
     if supports_charge_thresholds; then
         log "Battery thresholds supported, configuring ${start_threshold}-${stop_threshold}%..."
-        
+
         local conf_file="/etc/tlp.d/01-battery-thresholds.conf"
         $(need_sudo) mkdir -p /etc/tlp.d
         $(need_sudo) tee "$conf_file" >/dev/null <<EOF
@@ -151,7 +153,7 @@ STOP_CHARGE_THRESH_BAT0=${stop_threshold}
 START_CHARGE_THRESH_BAT1=${start_threshold}
 STOP_CHARGE_THRESH_BAT1=${stop_threshold}
 EOF
-        
+
         if $(need_sudo) systemctl is-active tlp.service &>/dev/null; then
             run $(need_sudo) systemctl restart tlp.service >/dev/null 2>&1 || true
         fi
@@ -172,14 +174,14 @@ install_fingerprint_support() {
         log "No fingerprint reader detected, skipping..."
         return 0
     fi
-    
+
     log "Fingerprint reader detected, installing support..."
-    
+
     if is_installed fprintd; then
         log "Fingerprint support already installed"
         return 0
     fi
-    
+
     apt_safe install -y fprintd libpam-fprintd || true
     log "Fingerprint reader installed. Enroll with: fprintd-enroll"
 }
@@ -195,7 +197,7 @@ verify_sensors() {
         log "WARNING: lm-sensors not installed"
         return 1
     fi
-    
+
     log "Hardware sensors check:"
     sensors | grep -E "(°C|RPM|V):" | head -5 || log "No sensor data available"
 }
