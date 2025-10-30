@@ -1,3 +1,24 @@
+# Ubuntu Bootstrap v1.0.2 - Release Notes
+
+## ✨ Minor Release: TimeShift + offline ProtonVPN keys
+
+### Highlights
+- TimeShift optional feature added (`timeshift.sh`) with install/verify/uninstall
+- ProtonVPN installer now supports offline key fallback using bundled `.asc` files
+- Quick Start updated with `make optional` and improved optional features guidance
+- CI workflow confirmed for lightweight lint and DRY_RUN smoke tests
+
+### Changes
+- scripts/optional-features/protonvpn.sh: Local key fallback if remote fetch fails
+- scripts/optional-features/timeshift.sh: New feature installer
+- docs/PROTONVPN.md, docs/PROTONVPN_QUICK_REF.md: Offline key fallback docs
+- docs/QUICK_START.md: Optional features section improvements
+
+### Quality
+- make lint-light: PASS
+- ProtonVPN test suite: PASS
+
+---
 # Ubuntu Bootstrap v1.0.1 - Release Notes
 
 ## ✨ Minor Release: ProtonVPN integration, privacy-first flow, post-install guide

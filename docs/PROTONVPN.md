@@ -136,6 +136,28 @@ wget -qO- https://repo.protonvpn.com/debian/public_key.asc | \
 sudo apt update
 ```
 
+### Issue: Offline or restricted network (cannot fetch key)
+
+If both remote key URLs are blocked, the installer now falls back to local key files if present. Place one of these files at the repository root and rerun the installer:
+
+```
+protonvpn_public_key.asc
+protonvpn_stable_public_key.asc
+```
+
+The script will dearmor the local file into:
+
+```
+/usr/share/keyrings/proton-vpn-stable-archive-keyring.gpg
+```
+
+Tip: If you have another machine with internet access, download the key and copy it over:
+
+```bash
+wget -O protonvpn_public_key.asc https://repo.protonvpn.com/debian/public_key.asc
+# Copy this file to your ubuntu-bootstrap directory on the offline host
+```
+
 ## Uninstallation
 
 To completely remove ProtonVPN:

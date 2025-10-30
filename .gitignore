@@ -21,6 +21,7 @@ logs/
 *.log
 *.tgz
 *.tar.gz
+*.sha256
 *.zip
 *.deb
 *.iso

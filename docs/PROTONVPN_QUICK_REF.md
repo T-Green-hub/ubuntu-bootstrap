@@ -84,6 +84,13 @@ wget -qO- https://repo.protonvpn.com/debian/public_key.asc | \
 sudo apt update
 ```
 
+Offline/restricted networks:
+```
+# Put one of these files in the repo root and rerun installer
+protonvpn_public_key.asc
+protonvpn_stable_public_key.asc
+```
+
 ## Files & Locations
 
 ```
