@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/../hardware/common.sh"
 # --- Package Definitions ---
 readonly INTEL_GRAPHICS_PKGS=(
   mesa-vulkan-drivers
-  libva-intel-driver
+  i965-va-driver
   intel-media-va-driver-non-free
   vulkan-tools
 )
@@ -78,24 +78,58 @@ install_bluetooth() {
     log "Bluetooth service already enabled."
   else
     log "Enabling Bluetooth service…"
-    $(need_sudo) systemctl enable bluetooth.service
+    run $(need_sudo) systemctl enable bluetooth.service
     # Start the service, but don't fail if it can't (e.g., no hardware).
-    $(need_sudo) systemctl start bluetooth.service || true
+    run $(need_sudo) systemctl start bluetooth.service || true
   fi
 }
 
-# Graphics drivers (primarily for Intel integrated GPUs).
+# Graphics drivers (detect GPU vendor and install appropriate drivers).
 install_graphics() {
-  # Use a subshell to temporarily ignore errors if non-free packages aren't available.
-  (install_pkgs "graphics drivers" "${INTEL_GRAPHICS_PKGS[@]}") || {
-    log "Some graphics packages might be unavailable (non-free repo may be needed)."
-  }
+  local gpu_info pkgs_to_install=()
+  gpu_info="$(lspci | grep -i vga || true)"
+
+  # Detect GPU vendor
+  if [[ "$gpu_info" =~ Intel ]]; then
+    log "Intel GPU detected, installing Intel graphics drivers…"
+    pkgs_to_install+=("${INTEL_GRAPHICS_PKGS[@]}")
+  elif [[ "$gpu_info" =~ NVIDIA ]]; then
+    log "NVIDIA GPU detected. For proprietary drivers, install via 'ubuntu-drivers' or 'Additional Drivers'."
+    # Add basic mesa support
+    pkgs_to_install+=(mesa-vulkan-drivers vulkan-tools)
+  elif [[ "$gpu_info" =~ AMD ]]; then
+    log "AMD GPU detected, installing Mesa drivers…"
+    pkgs_to_install+=(mesa-vulkan-drivers mesa-va-drivers vulkan-tools)
+  else
+    log "Unknown or no dedicated GPU detected, installing generic Mesa drivers…"
+    pkgs_to_install+=(mesa-vulkan-drivers vulkan-tools)
+  fi
+
+  if ((${#pkgs_to_install[@]})); then
+    # Use a subshell to temporarily ignore errors if non-free packages aren't available.
+    (install_pkgs "graphics drivers" "${pkgs_to_install[@]}") || {
+      log "Some graphics packages might be unavailable (non-free repo may be needed)."
+    }
+  fi
 }
 
 # ACPI and other essential laptop support packages.
 install_laptop_support() {
   # Note: laptop-mode-tools is not installed as it conflicts with TLP.
   install_pkgs "laptop support (ACPI)" "${LAPTOP_PKGS[@]}"
+    # Ensure ACPI service is enabled and started
+    if systemctl is-enabled acpid.service >/dev/null 2>&1; then
+      log "ACPI service already enabled."
+    else
+      log "Enabling ACPI (acpid) service…"
+      run $(need_sudo) systemctl enable acpid.service || true
+    fi
+    if systemctl is-active acpid.service >/dev/null 2>&1; then
+      log "ACPI service is active."
+    else
+      log "Starting ACPI (acpid) service…"
+      run $(need_sudo) systemctl start acpid.service || true
+    fi
 }
 
 # --- Verification ---

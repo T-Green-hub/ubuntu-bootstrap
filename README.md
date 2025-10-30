@@ -33,6 +33,7 @@ make run
 - 📚 [Full Installation Guide](docs/INSTALL.md) - Detailed explanations
 - 🔧 [Troubleshooting](docs/TROUBLESHOOTING.md) - Solutions to common issues
 - 💻 [Hardware Profiles](docs/HARDWARE_PROFILES.md) - Laptop optimizations
+- 🔍 [System Detection](docs/SYSTEM_DETECTION.md) - Hardware detection and compatibility
 
 ## Key Features
 
