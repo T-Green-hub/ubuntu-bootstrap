@@ -1,3 +1,31 @@
+# Ubuntu Bootstrap v1.0.1 - Release Notes
+
+## ✨ Minor Release: ProtonVPN integration, privacy-first flow, post-install guide
+
+### Highlights
+- ProtonVPN: Improved installer UX, robust key/repo fallbacks, clear verification
+- Privacy-first preset: `make privacy-first` installs ProtonVPN/Brave/TimeShift before dev tools
+- Post‑install guide: New `docs/POST_INSTALL.md` with recommended order and best practices
+- Lightweight lint: `make lint-light` syntax checks without shellcheck
+- Documentation: Quick Start updates and ProtonVPN guides (full + quick ref)
+
+### Changes
+- scripts/optional-features/protonvpn.sh: Stepwise logging, GPG key fallback, apt retry, uninstall polish
+- scripts/optional-features/test_protonvpn.sh: Automated test suite
+- scripts/99_verify.sh: ProtonVPN quick status when installed
+- Makefile: `privacy-first` and `lint-light` targets
+- docs: `PROTONVPN.md`, `PROTONVPN_QUICK_REF.md`, `POST_INSTALL.md`, cross-linked in README
+
+### Quality
+- make run: PASS (verified locally)
+- make lint-light: PASS (bash -n on tracked .sh files)
+- ProtonVPN tests: PASS
+
+### Notes
+- If you prefer privacy-first, use `make privacy-first`.
+- For full linting, install shellcheck and run `make lint`.
+
+---
 # Ubuntu Bootstrap v1.0.0 - Release Notes
 
 ## 🚀 Major Release: Security Hardening & Modularization
