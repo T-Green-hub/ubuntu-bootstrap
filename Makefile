@@ -14,7 +14,7 @@ SHELL := /bin/bash
 
 DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
-.PHONY: run verify base optional detect check lint lint-light release help ideal devtools privacy privacy-first
+.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first
 
 help: ## Show targets
 > @grep -E '^[a-zA-Z_\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
@@ -96,7 +96,24 @@ release: ## Tag + GitHub release. Usage: make release TAG=vX.Y.Z
 > git fetch --tags
 > git tag -a "$$TAG" -m "$$TAG — bootstrap base+verify"
 > git push origin "$$TAG"
+> # Create package if present variables are set
+> if [[ -f "ubuntu-bootstrap-$$TAG.tar.gz" ]]; then \
+>   echo "Using existing package: ubuntu-bootstrap-$$TAG.tar.gz"; \
+> else \
+>   echo "Packaging repository for $$TAG…"; \
+>   git archive -o "ubuntu-bootstrap-$$TAG.tar.gz" --format=tar.gz --prefix="ubuntu-bootstrap-$$TAG/" HEAD; \
+>   sha256sum "ubuntu-bootstrap-$$TAG.tar.gz" | tee "ubuntu-bootstrap-$$TAG.tar.gz.sha256"; \
+> fi
+> # Create GitHub release and upload artifacts (requires gh auth)
 > gh release create "$$TAG" \
->   --title "$$TAG — bootstrap base+verify" \
->   --notes "Minimal, idempotent bootstrap for Ubuntu 24.04: base packages + verification. Tested $$(date +%Y-%m-%d) PT."
+>   "ubuntu-bootstrap-$$TAG.tar.gz" "ubuntu-bootstrap-$$TAG.tar.gz.sha256" \
+>   --title "Ubuntu Bootstrap $$TAG" \
+>   --notes-file RELEASE_NOTES.md
 > echo "Release $$TAG published."
+
+package: ## Build tar.gz + sha256 for a given TAG. Usage: make package TAG=vX.Y.Z
+> if [[ -z "$$TAG" ]]; then echo "Set TAG, e.g.: make package TAG=v1.0.1"; exit 1; fi
+> echo "Packaging repository for $$TAG…"
+> git archive -o "ubuntu-bootstrap-$$TAG.tar.gz" --format=tar.gz --prefix="ubuntu-bootstrap-$$TAG/" HEAD
+> sha256sum "ubuntu-bootstrap-$$TAG.tar.gz" | tee "ubuntu-bootstrap-$$TAG.tar.gz.sha256"
+> ls -lh "ubuntu-bootstrap-$$TAG.tar.gz" "ubuntu-bootstrap-$$TAG.tar.gz.sha256"
