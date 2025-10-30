@@ -55,6 +55,11 @@ make run
 - VS Code with essential extensions
 - Development utilities (jq, ripgrep, etc.)
 
+### Optional Features
+
+- **Brave Browser** - Privacy-focused browser with built-in ad blocking
+- **ProtonVPN** - Secure VPN service with CLI and GUI client
+
 ### Safety Features
 
 - Preview mode (`DRY_RUN=1`)
@@ -77,6 +82,15 @@ scripts/run_bootstrap.sh --skip-script=40
 
 # Install specific dev tools
 scripts/40_dev-tools.sh docker nodejs python
+
+# Install optional features (Brave, ProtonVPN)
+make optional                           # Show available features
+scripts/60_optional-features.sh brave protonvpn  # Install both
+scripts/60_optional-features.sh brave   # Install Brave only
+
+# Hardware detection and compatibility check
+make detect    # Show hardware info and recommendations
+make check     # Check for deprecated packages
 
 # Verify installation
 make verify

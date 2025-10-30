@@ -14,7 +14,7 @@ SHELL := /bin/bash
 
 DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
-.PHONY: run verify base release help
+.PHONY: run verify base optional detect check lint release help
 
 help: ## Show targets
 > @grep -E '^[a-zA-Z_\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
@@ -27,6 +27,15 @@ verify: ## Only the verification (trim, SMART, sensors, timer)
 
 base: ## Only the base package setup
 > "$(DIR)/scripts/10_base-packages.sh"
+
+optional: ## Install optional features (ProtonVPN, Brave, etc.)
+> "$(DIR)/scripts/60_optional-features.sh"
+
+detect: ## Run hardware detection and show recommendations
+> "$(DIR)/scripts/detect_system.sh"
+
+check: ## Check package compatibility for current Ubuntu version
+> "$(DIR)/scripts/check_package_compat.sh" --known
 
 lint: ## Lint scripts with shellcheck (requires shellcheck)
 > @if ! command -v shellcheck >/dev/null 2>&1; then \
