@@ -44,8 +44,8 @@ if ! git config --get user.name >/dev/null 2>&1; then
 fi
 
 if ! git config --get user.email >/dev/null 2>&1; then
-  # Generate a reasonable default email
-  git config user.email "${USER}@$(hostname -f 2>/dev/null || echo 'localhost')"
+  # Use noreply GitHub email pattern for privacy
+  git config user.email "${USER}@users.noreply.github.com"
 fi
 git config pull.rebase false
 

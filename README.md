@@ -116,11 +116,12 @@ DRY_RUN=1 make run
 
 - Check the [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 
-- Open an issue on GitHub
+- Open an issue: https://github.com/T-Green-hub/ubuntu-bootstrap/issues
 
 ## License
 
-[MIT](LICENSE) © 2025 T-Green-hub
+[MIT](LICENSE) © 2025 T-Green-hub  
+Repository: https://github.com/T-Green-hub/ubuntu-bootstrap
 
 ## Hardware profiles
 
