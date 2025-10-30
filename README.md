@@ -59,6 +59,8 @@ make run
 
 - **Brave Browser** - Privacy-focused browser with built-in ad blocking
 - **ProtonVPN** - Secure VPN service with CLI and GUI client
+- **VLC Media Player** - Feature-rich multimedia player with codec support
+- **LibreOffice** - Full office suite (Writer, Calc, Impress, Draw, Base, Math)
 
 ### Safety Features
 
@@ -83,10 +85,11 @@ scripts/run_bootstrap.sh --skip-script=40
 # Install specific dev tools
 scripts/40_dev-tools.sh docker nodejs python
 
-# Install optional features (Brave, ProtonVPN)
-make optional                           # Show available features
-scripts/60_optional-features.sh brave protonvpn  # Install both
-scripts/60_optional-features.sh brave   # Install Brave only
+# Install optional features (Brave, ProtonVPN, VLC, LibreOffice)
+make optional                                    # Show available features
+scripts/60_optional-features.sh brave protonvpn  # Install privacy tools
+scripts/60_optional-features.sh vlc libreoffice  # Install desktop apps
+scripts/60_optional-features.sh brave            # Install Brave only
 
 # Hardware detection and compatibility check
 make detect    # Show hardware info and recommendations

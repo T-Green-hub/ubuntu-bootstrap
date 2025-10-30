@@ -24,6 +24,8 @@ log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 declare -A OPTIONAL_FEATURES=(
     ["protonvpn"]="ProtonVPN - Secure VPN with CLI and GUI"
     ["brave"]="Brave Browser - Privacy-focused browser with ad blocking"
+    ["vlc"]="VLC Media Player - Feature-rich multimedia player"
+    ["libreoffice"]="LibreOffice - Full office suite (Writer, Calc, Impress, Draw, Base, Math)"
 )
 
 show_available_features() {
@@ -45,6 +47,7 @@ show_available_features() {
     echo "Examples:"
     echo "  $0 protonvpn brave    # Install ProtonVPN and Brave"
     echo "  $0 protonvpn          # Install ProtonVPN only"
+    echo "  $0 vlc libreoffice    # Install VLC and LibreOffice"
     echo "  DRY_RUN=1 $0 brave    # Preview Brave installation"
     echo ""
 }
