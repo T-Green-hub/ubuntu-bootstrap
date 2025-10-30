@@ -57,8 +57,11 @@ make run
 
 ### Optional Features
 
+Recommended order: install optional features after base/dev-tools for faster runs and fewer apt refreshes. Prefer privacy-first? Use the "privacy-first" target below.
+
+- **ProtonVPN** - Official Linux app (daemon + GTK GUI). Note: the legacy community CLI is not included.
 - **Brave Browser** - Privacy-focused browser with built-in ad blocking
-- **ProtonVPN** - Secure VPN service with CLI and GUI client
+- **TimeShift** - System snapshots and restore
 - **VLC Media Player** - Feature-rich multimedia player with codec support
 - **LibreOffice** - Full office suite (Writer, Calc, Impress, Draw, Base, Math)
 
@@ -90,6 +93,9 @@ make optional                                    # Show available features
 scripts/60_optional-features.sh brave protonvpn  # Install privacy tools
 scripts/60_optional-features.sh vlc libreoffice  # Install desktop apps
 scripts/60_optional-features.sh brave            # Install Brave only
+
+# Privacy-first preset (optional): install privacy extras before dev tools
+make privacy-first
 
 # Hardware detection and compatibility check
 make detect    # Show hardware info and recommendations

@@ -14,7 +14,7 @@ SHELL := /bin/bash
 
 DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
-.PHONY: run verify base optional detect check lint release help
+.PHONY: run verify base optional detect check lint lint-light release help ideal devtools privacy privacy-first
 
 help: ## Show targets
 > @grep -E '^[a-zA-Z_\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
@@ -43,6 +43,53 @@ lint: ## Lint scripts with shellcheck (requires shellcheck)
 >   exit 1; \
 > fi
 > shellcheck -x scripts/*.sh hardware/*.sh
+
+lint-light: ## Fast syntax check (bash -n) for all scripts (no shellcheck needed)
+> @echo "Running lightweight lint (bash -n)…"
+> @rc=0; \
+> for f in $$(git ls-files '*.sh'); do \
+>   bash -n "$$f" || { echo "Syntax error in $$f"; rc=1; }; \
+> done; \
+> exit $$rc
+
+devtools: ## Install development tools (Docker, Node, Python, Rust, Go, VS Code, utilities)
+> "$(DIR)/scripts/40_dev-tools.sh"
+
+privacy: ## Install privacy suite (ProtonVPN, Brave, TimeShift)
+> "$(DIR)/scripts/60_optional-features.sh" protonvpn brave timeshift
+
+privacy-first: ## Install privacy extras before dev tools (ProtonVPN, Brave, TimeShift → then Dev Tools)
+> @echo "=== Installing Privacy & Productivity Suite FIRST ==="
+> "$(DIR)/scripts/60_optional-features.sh" protonvpn brave timeshift || true
+> @echo ""
+> @echo "=== Installing Development Tools SECOND ==="
+> "$(DIR)/scripts/40_dev-tools.sh" || true
+> @echo ""
+> @echo "=== Verifying Installation ==="
+> "$(DIR)/scripts/99_verify.sh" || true
+> @echo ""
+> @echo "✓ Privacy-first setup complete!"
+
+ideal: ## Complete ideal setup: dev tools + privacy suite + VLC + LibreOffice
+> @echo "=== Installing Development Tools ==="
+> "$(DIR)/scripts/40_dev-tools.sh" || true
+> @echo ""
+> @echo "=== Installing Privacy & Productivity Suite ==="
+> "$(DIR)/scripts/60_optional-features.sh" protonvpn brave timeshift vlc libreoffice || true
+> @echo ""
+> @echo "=== Verifying Installation ==="
+> "$(DIR)/scripts/99_verify.sh" || true
+> @echo ""
+> @echo "✓ Ideal setup complete!"
+> @echo "  - ProtonVPN: protonvpn-app"
+> @echo "  - TimeShift: sudo timeshift-gtk"
+> @echo "  - Brave: brave-browser"
+> @echo "  - Dev tools: docker, node, python, rust, go, code"
+> @echo ""
+> @echo "Next steps:"
+> @echo "  1. Log out/in for Docker group membership"
+> @echo "  2. Configure ProtonVPN auto-connect in app settings"
+> @echo "  3. Create first TimeShift snapshot: sudo timeshift --create"
 
 release: ## Tag + GitHub release. Usage: make release TAG=vX.Y.Z
 > if [[ -z "$$TAG" ]]; then echo "Set TAG, e.g.: make release TAG=v0.1.2"; exit 1; fi
