@@ -130,6 +130,20 @@ main(){
   sensors_brief
   nvme_list
   fstrim_timer
+  # Optional: ProtonVPN quick status (if installed)
+  if command -v protonvpn-app >/dev/null 2>&1; then
+    log "ProtonVPN status:"
+    if systemctl is-active --quiet me.proton.vpn.split_tunneling.service 2>/dev/null; then
+      log "  ✓ Daemon running (me.proton.vpn.split_tunneling.service)"
+    else
+      log "  ⚠ Daemon not running (starts with GUI on first launch)"
+    fi
+    if systemctl is-enabled --quiet me.proton.vpn.split_tunneling.service 2>/dev/null; then
+      log "  ✓ Service enabled"
+    else
+      log "  ⚠ Service not enabled"
+    fi
+  fi
   log "Verification complete."
 }
 

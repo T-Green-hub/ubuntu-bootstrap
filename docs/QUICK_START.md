@@ -171,6 +171,33 @@ source ~/.bashrc
 
 **Note**: For Docker, you must log out and back in to use it without sudo.
 
+## Optional Features (ProtonVPN, Browser, etc.)
+
+You can install privacy and productivity extras via the optional features orchestrator.
+
+Install ProtonVPN only:
+
+```bash
+scripts/60_optional-features.sh protonvpn
+```
+
+Install multiple features (example: ProtonVPN + Brave + TimeShift):
+
+```bash
+scripts/60_optional-features.sh protonvpn brave timeshift
+```
+
+Preview without changes:
+
+```bash
+DRY_RUN=1 scripts/60_optional-features.sh protonvpn
+```
+
+Quick References:
+
+- ProtonVPN quick guide: docs/PROTONVPN_QUICK_REF.md
+- Full ProtonVPN doc: docs/PROTONVPN.md
+
 ## Having Problems?
 
 - **Installation fails?** See our [Troubleshooting Guide](TROUBLESHOOTING.md)
