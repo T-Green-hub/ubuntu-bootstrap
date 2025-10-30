@@ -22,10 +22,11 @@ log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 
 # List of available optional features
 declare -A OPTIONAL_FEATURES=(
-    ["protonvpn"]="ProtonVPN - Secure VPN with CLI and GUI"
+    ["protonvpn"]="ProtonVPN - Official GUI app (daemon + GTK)"
     ["brave"]="Brave Browser - Privacy-focused browser with ad blocking"
     ["vlc"]="VLC Media Player - Feature-rich multimedia player"
     ["libreoffice"]="LibreOffice - Full office suite (Writer, Calc, Impress, Draw, Base, Math)"
+    ["timeshift"]="TimeShift - System snapshots and restore (rsync/GUI)"
 )
 
 show_available_features() {
