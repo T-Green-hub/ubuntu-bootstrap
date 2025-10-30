@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# Ubuntu 24.04 development tools installation (idempotent).
+
+# Ubuntu 24.04 development tools installation (modular).
 # Docker, Node.js, Python, Rust, Go, VS Code, and essential dev utilities.
-# Note: This is a monolithic script; for fine-grained control, consider
-# splitting into 41_docker.sh, 42_node.sh, 43_python.sh, etc.
+#
+# This script now orchestrates modular install scripts in scripts/dev-modules/.
+# Each module is independently testable and sourceable.
+#
+# To add/remove tools, edit the modules in scripts/dev-modules/ and update the list below.
+#
+# Usage: ./40_dev-tools.sh [tool ...]
+#   If no arguments, installs all tools. Otherwise, installs only specified tools.
+
+# Each module must provide both install_<tool> and uninstall_<tool> functions for advanced validation/rollback.
+# Example: install_docker, uninstall_docker
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -11,232 +21,101 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../hardware/common.sh"
 
+
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 
-# Docker installation (official repo)
-install_docker(){
-  if command -v docker >/dev/null 2>&1; then
-    log "Docker already installed: $(docker --version)"
-    return 0
-  fi
-  
-  log "Installing Docker…"
-  
-  # Install prerequisites
-  apt_safe update -qq
-  apt_safe install -y ca-certificates curl gnupg
-  
-  # Add Docker's official GPG key
-  $(need_sudo) install -m 0755 -d /etc/apt/keyrings
-  if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
-    curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
-      https://download.docker.com/linux/ubuntu/gpg | \
-      $(need_sudo) gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    $(need_sudo) chmod a+r /etc/apt/keyrings/docker.gpg
-  fi
-  
-  # Add repository
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    $(need_sudo) tee /etc/apt/sources.list.d/docker.list > /dev/null
-  
-  # Install Docker
-  apt_safe update -qq
-  apt_safe install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  
-  # Add user to docker group
-  if ! groups "$USER" | grep -q docker; then
-    log "Adding $USER to docker group…"
-    $(need_sudo) usermod -aG docker "$USER"
-    log "Docker group added. Log out and back in for changes to take effect."
-  fi
-  
-  log "Docker installed successfully."
-}
+# List of tool modules and their install functions
+DEV_MODULES=(
+  "docker:install_docker"
+  "nodejs:install_nodejs"
+  "python:install_python"
+  "rust:install_rust"
+  "go:install_go"
+  "vscode:install_vscode"
+  "utilities:install_dev_utilities"
+)
 
-# Node.js via nvm (Node Version Manager)
-install_nodejs(){
-  local NVM_DIR="$HOME/.nvm"
-  
-  if [[ -d "$NVM_DIR" ]]; then
-    log "nvm already installed at $NVM_DIR"
-  else
-    log "Installing nvm (Node Version Manager)…"
-    curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
-      -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-    
-    # Source nvm for this session
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  fi
-  
-  # Source nvm if available
-  export NVM_DIR="$HOME/.nvm"
-  if [ -s "$NVM_DIR/nvm.sh" ]; then
-    set +u
-    \. "$NVM_DIR/nvm.sh"
-    
-    # Install Node LTS if not present
-    if ! command -v node >/dev/null 2>&1; then
-      log "Installing Node.js LTS…"
-      nvm install --lts
-      nvm use --lts
-      log "Node.js installed: $(node --version)"
-    else
-      log "Node.js already installed: $(node --version)"
-    fi
-    set -u
-  fi
-}
 
-# Python via pyenv (Python version manager)
-install_python(){
-  if command -v pyenv >/dev/null 2>&1; then
-    log "pyenv already installed: $(pyenv --version)"
-    return 0
-  fi
-  
-  log "Installing pyenv dependencies…"
-  apt_safe install -y build-essential libssl-dev zlib1g-dev \
-    libbz2-dev libreadline-dev libsqlite3-dev curl \
-    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-  
-  log "Installing pyenv…"
-  curl --retry 3 --retry-delay 2 --connect-timeout 10 https://pyenv.run | bash
-  
-  # Add to shell profile if not present
-  local profile="$HOME/.bashrc"
-  if ! grep -q 'pyenv init' "$profile" 2>/dev/null; then
-    log "Adding pyenv to $profile…"
-    cat >> "$profile" <<'EOF'
+# Source all modules (shellcheck disable for dynamic source)
+# shellcheck source=dev-modules/docker.sh
+# shellcheck source=dev-modules/nodejs.sh
+# shellcheck source=dev-modules/python.sh
+# shellcheck source=dev-modules/rust.sh
+# shellcheck source=dev-modules/go.sh
+# shellcheck source=dev-modules/vscode.sh
+# shellcheck source=dev-modules/utilities.sh
+for mod in "${DEV_MODULES[@]}"; do
+  name="${mod%%:*}"
+  # shellcheck disable=SC1090
+  source "${SCRIPT_DIR}/dev-modules/${name}.sh"
+done
 
-# pyenv configuration
-export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-EOF
-  fi
-  
-  log "pyenv installed. Run 'pyenv install 3.12' to install Python 3.12."
-}
 
-# Rust via rustup
-install_rust(){
-  if command -v rustc >/dev/null 2>&1; then
-    log "Rust already installed: $(rustc --version)"
-    return 0
-  fi
-  
-  log "Installing Rust via rustup…"
-  curl --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --connect-timeout 10 \
-    -sSf https://sh.rustup.rs | sh -s -- -y
-  
-  # Source cargo env
-  if [[ -f "$HOME/.cargo/env" ]]; then
-    source "$HOME/.cargo/env"
-    log "Rust installed: $(rustc --version)"
-  fi
-}
+# Move main and verify_installation to top so main is defined before being called
+main(){
+  log "=== Development Tools Installation (Modular) ==="
 
-# Go programming language
-install_go(){
-  if command -v go >/dev/null 2>&1; then
-    log "Go already installed: $(go version)"
-    return 0
-  fi
-  
-  log "Installing Go…"
-  local GO_VERSION="1.21.4"
-  local GO_TAR="go${GO_VERSION}.linux-amd64.tar.gz"
-  local GO_INSTALL_DIR="/usr/local/go"
-  
-  cd /tmp
-  curl -LO --retry 3 --retry-delay 2 --connect-timeout 10 \
-    "https://go.dev/dl/${GO_TAR}"
-  
-  # Safety check before rm -rf
-  if [[ -d "$GO_INSTALL_DIR" ]]; then
-    log "Removing existing Go installation at $GO_INSTALL_DIR…"
-    $(need_sudo) rm -rf "$GO_INSTALL_DIR"
-  fi
-  
-  $(need_sudo) tar -C /usr/local -xzf "$GO_TAR"
-  rm "$GO_TAR"
-  
-  # Add to PATH if not present
-  local profile="$HOME/.bashrc"
-  if ! grep -q '/usr/local/go/bin' "$profile" 2>/dev/null; then
-    log "Adding Go to PATH in $profile…"
-    cat >> "$profile" <<'EOF'
-
-# Go configuration
-export PATH=$PATH:/usr/local/go/bin
-export GOPATH=$HOME/go
-export PATH=$PATH:$GOPATH/bin
-EOF
-  fi
-  
-  log "Go installed. Run 'source ~/.bashrc' to update PATH."
-}
-
-# VS Code (Microsoft official)
-install_vscode(){
-  if command -v code >/dev/null 2>&1; then
-    log "VS Code already installed."
-    return 0
-  fi
-  
-  log "Installing VS Code…"
-  
-  # Add Microsoft GPG key
-  curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
-    https://packages.microsoft.com/keys/microsoft.asc | \
-    gpg --dearmor | $(need_sudo) tee /usr/share/keyrings/packages.microsoft.gpg > /dev/null
-  
-  # Add repository
-  echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | \
-    $(need_sudo) tee /etc/apt/sources.list.d/vscode.list
-  
-  # Install
-  apt_safe update -qq
-  apt_safe install -y code
-  
-  log "VS Code installed."
-}
-
-# Additional development utilities
-install_dev_utilities(){
-  local pkgs=(
-    jq              # JSON processor
-    tree            # Directory viewer
-    httpie          # HTTP client
-    ripgrep         # Fast grep alternative
-    fd-find         # Fast find alternative
-    tmux            # Terminal multiplexer
-    sqlite3         # SQLite database
-  )
-  
+  local failed_tools=()
   local to_install=()
-  for pkg in "${pkgs[@]}"; do
-    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-      to_install+=("$pkg")
+
+  # If arguments given, only install those tools
+  if [[ $# -gt 0 ]]; then
+    for arg in "$@"; do
+      found=0
+      for mod in "${DEV_MODULES[@]}"; do
+        name="${mod%%:*}"
+        func="${mod##*:}"
+        if [[ "$arg" == "$name" ]]; then
+          to_install+=("$mod")
+          found=1
+          break
+        fi
+      done
+      if [[ $found -eq 0 ]]; then
+        log "WARNING: Unknown tool: $arg"
+      fi
+    done
+  else
+    to_install=("${DEV_MODULES[@]}")
+  fi
+
+  # Install tools with individual error tracking
+  for mod in "${to_install[@]}"; do
+    name="${mod%%:*}"
+    func="${mod##*:}"
+    log "Installing $name…"
+    if ! $func; then
+      failed_tools+=("$name")
     fi
   done
-  
-  if ((${#to_install[@]})); then
-    log "Installing development utilities: ${to_install[*]}"
-  apt_safe install -y "${to_install[@]}"
+
+  verify_installation
+
+  # Report results
+  if [[ ${#failed_tools[@]} -gt 0 ]]; then
+    log "WARNING: Some installations failed: ${failed_tools[*]}"
+    log "Development tools installation completed with errors."
   else
-    log "Development utilities already installed."
+    log "Development tools installation complete - all tools succeeded."
+  fi
+
+  log ""
+  log "IMPORTANT: Some tools require shell restart or re-login:"
+  log "  - Docker: Log out/in to use without sudo"
+  log "  - Node.js: Run 'source ~/.nvm/nvm.sh' or restart shell"
+  log "  - Python: Run 'source ~/.bashrc' to enable pyenv"
+  log "  - Rust: Run 'source ~/.cargo/env' or restart shell"
+  log "  - Go: Run 'source ~/.bashrc' to update PATH"
+
+  # Return non-zero if any tools failed
+  if [[ ${#failed_tools[@]} -gt 0 ]]; then
+    return 1
   fi
 }
 
-# Verification
 verify_installation(){
   log "Verifying installed tools…"
-  
   command -v docker >/dev/null 2>&1 && log "✓ Docker: $(docker --version)"
   command -v node >/dev/null 2>&1 && log "✓ Node.js: $(node --version)"
   command -v npm >/dev/null 2>&1 && log "✓ npm: $(npm --version)"
@@ -245,28 +124,7 @@ verify_installation(){
   command -v go >/dev/null 2>&1 && log "✓ Go: $(go version)"
   command -v code >/dev/null 2>&1 && log "✓ VS Code installed"
   command -v jq >/dev/null 2>&1 && log "✓ jq: $(jq --version)"
-  
   log "Verification complete."
-}
-
-main(){
-  log "=== Development Tools Installation ==="
-  install_docker
-  install_nodejs
-  install_python
-  install_rust
-  install_go
-  install_vscode
-  install_dev_utilities
-  verify_installation
-  log "Development tools installation complete."
-  log ""
-  log "IMPORTANT: Some tools require shell restart or re-login:"
-  log "  - Docker: Log out/in to use without sudo"
-  log "  - Node.js: Run 'source ~/.nvm/nvm.sh' or restart shell"
-  log "  - Python: Run 'source ~/.bashrc' to enable pyenv"
-  log "  - Rust: Run 'source ~/.cargo/env' or restart shell"
-  log "  - Go: Run 'source ~/.bashrc' to update PATH"
 }
 
 main "$@"

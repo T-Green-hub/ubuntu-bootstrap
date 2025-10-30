@@ -11,12 +11,18 @@ ensure_module_load() {
   if lsmod | grep -q "^${mod}\\b"; then
     log "Kernel module ${mod} already loaded"
   else
-    run $(need_sudo) modprobe "$mod" || log "WARNING: could not load ${mod}"
+    if ! run $(need_sudo) modprobe "$mod"; then
+      log "WARNING: could not load ${mod} (module may not be available on this hardware)"
+      return 1
+    fi
   fi
   local conf="/etc/modules-load.d/${mod}.conf"
   if [[ ! -f "$conf" ]]; then
-    echo "$mod" | $(need_sudo) tee "$conf" >/dev/null || true
-    log "Ensured ${mod} persists across reboots"
+    if echo "$mod" | $(need_sudo) tee "$conf" >/dev/null; then
+      log "Ensured ${mod} persists across reboots"
+    else
+      log "WARNING: Could not create persistent module config for ${mod}"
+    fi
   fi
 }
 

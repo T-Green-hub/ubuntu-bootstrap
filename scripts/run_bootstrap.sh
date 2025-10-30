@@ -142,7 +142,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --skip-script=*)
-      SKIP_SCRIPTS+=("${1#*=}")
+      skip_value="${1#*=}"
+      # Validate that skip value is a 2-digit number
+      if [[ ! "$skip_value" =~ ^[0-9][0-9]$ ]]; then
+        log "ERROR: --skip-script requires a 2-digit number (e.g., --skip-script=40)"
+        log "Invalid value: '$skip_value'"
+        exit 1
+      fi
+      SKIP_SCRIPTS+=("$skip_value")
       shift
       ;;
     --help)
@@ -257,11 +264,17 @@ for i in "${!scripts[@]}"; do
     SUCCESS_SCRIPTS+=("$success_label")
   else
     log "ERROR: $script_name failed with exit code $exit_code"
+    log "  Script path: $script"
+    log "  Step: $step/$total"
+    if [[ -n "$LOG_DIR" ]]; then
+      log "  Check log: $(log_file_for_script "$script_name")"
+    fi
     FAILED_SCRIPTS+=("$script_name")
 
     # Exit on critical failures (exit codes 1-10 are critical)
     if (( exit_code <= 10 )); then
       log "CRITICAL FAILURE - stopping bootstrap."
+      log "  You can retry with: --skip-script=$script_num"
       exit "$exit_code"
     else
       log "Non-critical failure - continuing with next script."

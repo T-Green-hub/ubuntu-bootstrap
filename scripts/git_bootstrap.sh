@@ -28,9 +28,25 @@ if [ ! -d .git ]; then
   git init -b main
 fi
 
-# Safe git defaults only if unset (fixable later)
-git config --get user.name  >/dev/null 2>&1 || git config user.name  "Tyler G."
-git config --get user.email >/dev/null 2>&1 || git config user.email "tyler@example.com"
+# Safe git defaults only if unset (use existing or prompt for real values)
+if ! git config --get user.name >/dev/null 2>&1; then
+  # Try to detect from system first
+  if command -v getent >/dev/null 2>&1; then
+    REAL_NAME=$(getent passwd "$USER" | cut -d: -f5 | cut -d, -f1)
+    if [[ -n "$REAL_NAME" && "$REAL_NAME" != "$USER" ]]; then
+      git config user.name "$REAL_NAME"
+    else
+      git config user.name "$USER"
+    fi
+  else
+    git config user.name "$USER"
+  fi
+fi
+
+if ! git config --get user.email >/dev/null 2>&1; then
+  # Generate a reasonable default email
+  git config user.email "${USER}@$(hostname -f 2>/dev/null || echo 'localhost')"
+fi
 git config pull.rebase false
 
 # Ensure a useful .gitignore exists (idempotent)
