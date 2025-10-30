@@ -34,6 +34,7 @@ make run
 - 🔧 [Troubleshooting](docs/TROUBLESHOOTING.md) - Solutions to common issues
 - 💻 [Hardware Profiles](docs/HARDWARE_PROFILES.md) - Laptop optimizations
 - 🔍 [System Detection](docs/SYSTEM_DETECTION.md) - Hardware detection and compatibility
+ - ✅ [Post‑Install Guide](docs/POST_INSTALL.md) - Best order and practices after bootstrap
 
 ## Key Features
 

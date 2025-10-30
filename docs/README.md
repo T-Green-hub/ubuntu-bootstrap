@@ -11,6 +11,7 @@
 - **PROTONVPN_QUICK_REF.md** — ProtonVPN quick reference card
 - **SYSTEM_DETECTION.md** — Hardware and system detection
 - **TROUBLESHOOTING.md** — Common issues and solutions
+ - **POST_INSTALL.md** — Best order and practices after bootstrap
 
 ## Development
 - **DEPLOYMENT_CHECKLIST.md** — Release checklist
