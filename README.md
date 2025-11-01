@@ -125,6 +125,20 @@ DRY_RUN=1 make run
 - Run `make verify` separately to check system health
 - Set `STRICT=1` to fail on warnings instead of continuing
 
+## Security
+
+This project follows security best practices:
+
+- ✅ **No curl | bash** - All remote scripts are downloaded, validated, and inspected before execution
+- ✅ **Checksum verification** - Critical downloads (like Go) are verified with SHA256
+- ✅ **Secure temp files** - Uses `mktemp` instead of predictable paths
+- ✅ **Input validation** - All user inputs and environment variables are validated
+- ✅ **Path safety** - Destructive operations have multiple validation checks
+- ✅ **Minimal permissions** - Most operations run as regular user; sudo only when needed
+- ✅ **Idempotent** - Safe to run multiple times without side effects
+
+**Reporting Security Issues**: Please report security vulnerabilities privately via GitHub Security Advisories.
+
 ## License
 
 [MIT](LICENSE) © 2025 T-Green-hub  
