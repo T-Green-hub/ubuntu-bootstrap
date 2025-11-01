@@ -1,5 +1,26 @@
 # Common Issues & Solutions
 
+This guide covers common problems you might encounter during installation and how to resolve them.
+
+## Quick Diagnostics
+
+Before troubleshooting specific issues, try these quick checks:
+
+```bash
+# Preview what would happen (safe, makes no changes)
+DRY_RUN=1 make run
+
+# Check system health
+make verify
+
+# View logs from last run
+ls -ltr logs/
+tail -100 logs/$(ls -t logs/ | head -1)/*.log
+
+# Test network connectivity
+ping -c 3 1.1.1.1 && echo "Network OK"
+```
+
 ## APT Lock Issues
 
 If you encounter APT lock errors:
@@ -168,9 +189,80 @@ To skip problematic tools:
 # Instead of all tools: docker nodejs python rust go vscode utilities
 ```
 
+## Permission Denied Errors
+
+If you see "permission denied" errors:
+
+```bash
+# Most scripts need sudo for system changes
+# But some tools (nvm, pyenv, cargo) install to user directory
+
+# Check if running as the right user
+echo $USER
+whoami
+
+# For Docker/system packages, use sudo or run via make
+sudo make run
+# or
+make run  # Will prompt for sudo when needed
+```
+
+## Script Execution Errors
+
+If a script fails with syntax errors:
+
+```bash
+# Verify bash version (need 4.0+)
+bash --version
+
+# Check script syntax
+bash -n scripts/10_base-packages.sh
+
+# Run with verbose output
+bash -x scripts/10_base-packages.sh
+```
+
+## Firewall Blocking Access
+
+If UFW blocks services you need:
+
+```bash
+# Check firewall status
+sudo ufw status verbose
+
+# Allow specific ports
+sudo ufw allow 8080/tcp  # Example: web server
+sudo ufw allow 3000/tcp  # Example: dev server
+
+# Disable temporarily (not recommended)
+sudo ufw disable
+```
+
 ## Still Having Issues?
 
-- Check logs under `logs/<timestamp>/`
-- Set `LOG_DIR=/tmp/bootstrap-logs` for custom log location
-- Use `DRY_RUN=1` to preview actions
-- Report issues on GitHub with log output
+**Before opening an issue:**
+
+1. Check logs under `logs/<timestamp>/`
+2. Run with `DRY_RUN=1` to see what would happen
+3. Verify network connectivity: `ping 1.1.1.1`
+4. Check disk space: `df -h`
+5. Review system logs: `journalctl -xe`
+
+**When reporting issues:**
+
+- Include the command you ran
+- Attach relevant log files from `logs/`
+- Mention your Ubuntu version: `lsb_release -a`
+- Describe hardware: `sudo dmidecode -s system-product-name`
+- Include error messages (full output if possible)
+
+**Environment variables for debugging:**
+
+```bash
+DRY_RUN=1       # Preview mode (no changes)
+STRICT=1        # Fail on warnings
+LOG_DIR=/tmp    # Custom log location
+HARDWARE_PROFILE=generic  # Force hardware profile
+```
+
+Open an issue: https://github.com/T-Green-hub/ubuntu-bootstrap/issues

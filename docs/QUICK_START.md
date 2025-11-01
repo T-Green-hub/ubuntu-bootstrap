@@ -6,11 +6,33 @@ This guide helps you set up Ubuntu 24.04 with essential tools and optimizations,
 
 ## Before You Begin
 
+### Prerequisites
+
 Make sure you have:
 
-- Ubuntu 24.04 (Noble) desktop or server
-- Internet connection
-- A user account with sudo privileges
+- ✅ Ubuntu 24.04 (Noble) desktop or server - **Required**
+- ✅ Internet connection - **Required**
+- ✅ A user account with sudo privileges - **Required**
+- 💾 At least 5GB free disk space (more for dev tools)
+- ⏱️ 5-15 minutes of time (depending on options)
+
+### System Check
+
+Verify your Ubuntu version:
+
+```bash
+lsb_release -a
+# Should show: Ubuntu 24.04 LTS (Noble Numbat)
+```
+
+Check available disk space:
+
+```bash
+df -h /
+# Should show at least 5GB available
+```
+
+### Install Prerequisites
 
 First, open a terminal (Ctrl+Alt+T) and install some basic tools:
 
@@ -18,7 +40,7 @@ First, open a terminal (Ctrl+Alt+T) and install some basic tools:
 sudo apt update && sudo apt install -y git curl make
 ```
 
-**Note**: You can copy commands by clicking the code block. Paste in terminal with Ctrl+Shift+V.
+**💡 Tip**: You can copy commands by clicking the code block. Paste in terminal with Ctrl+Shift+V.
 
 ## Basic Installation (5 minutes)
 
@@ -198,10 +220,60 @@ Quick References:
 - ProtonVPN quick guide: docs/PROTONVPN_QUICK_REF.md
 - Full ProtonVPN doc: docs/PROTONVPN.md
 
+## Post-Installation
+
+### Recommended Next Steps
+
+After installation completes successfully:
+
+1. **Log out and log back in** - Required for Docker and group changes
+2. **Verify installation** - Run `make verify` to check system health
+3. **Review logs** - Check `logs/` directory for any warnings
+4. **Create a system snapshot** - If you installed TimeShift, create your first backup
+
+### Verification Commands
+
+Check that everything is working:
+
+```bash
+# Verify Docker (after re-login)
+docker --version
+docker run hello-world
+
+# Verify Node.js
+source ~/.nvm/nvm.sh
+node --version
+npm --version
+
+# Verify Python
+source ~/.bashrc
+pyenv versions
+
+# Check system health
+make verify
+```
+
 ## Having Problems?
 
-- **Installation fails?** See our [Troubleshooting Guide](TROUBLESHOOTING.md)
-- **Need all the details?** Check the [Full Installation Guide](INSTALL.md)
-- **Hardware questions?** Read about [Hardware Profiles](HARDWARE_PROFILES.md)
+### Quick Fixes
 
-You can always run with `DRY_RUN=1` to safely preview any command before running it.
+- **Script fails?** Check logs in `logs/<timestamp>/`
+- **Package conflicts?** Try `sudo apt --fix-broken install`
+- **Need to retry?** Scripts are idempotent - safe to run again
+- **Partial install?** Use `--skip-script=XX` to skip completed sections
+
+### Get Help
+
+- 📖 **Installation fails?** See our [Troubleshooting Guide](TROUBLESHOOTING.md)
+- 📚 **Need all the details?** Check the [Full Installation Guide](INSTALL.md)
+- 💻 **Hardware questions?** Read about [Hardware Profiles](HARDWARE_PROFILES.md)
+- 🔍 **System detection?** See [System Detection Guide](SYSTEM_DETECTION.md)
+
+**💡 Pro tip**: You can always run with `DRY_RUN=1` to safely preview any command before running it.
+
+## Next Steps
+
+- ✅ Review the [Post-Install Guide](POST_INSTALL.md) for optimization tips
+- ✅ Configure your development environment
+- ✅ Set up ProtonVPN if privacy is important to you
+- ✅ Create a TimeShift snapshot for easy rollback

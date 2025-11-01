@@ -37,10 +37,15 @@ install_pkgs() {
 
   if ((${#to_install[@]})); then
     log "Installing $description: ${to_install[*]}"
-    apt_safe update -qq
-    apt_safe install -y "${to_install[@]}"
+    apt_safe update -qq || return 1
+    if apt_safe install -y "${to_install[@]}"; then
+      log "✓ $description installed successfully"
+    else
+      log "ERROR: Failed to install $description"
+      return 1
+    fi
   else
-    log "$description already installed."
+    log "✓ $description already installed"
   fi
 }
 
@@ -53,10 +58,12 @@ install_microcode() {
 
   if [[ "$cpu_info" =~ GenuineIntel ]]; then
     vendor="intel"
+    log "Detected Intel CPU"
   elif [[ "$cpu_info" =~ AuthenticAMD ]]; then
     vendor="amd"
+    log "Detected AMD CPU"
   else
-    log "Unknown CPU vendor, skipping microcode."
+    log "⚠ Unknown CPU vendor, skipping microcode"
     return 0
   fi
 
@@ -75,12 +82,20 @@ install_bluetooth() {
 
   # Ensure Bluetooth service is enabled.
   if systemctl is-enabled bluetooth.service >/dev/null 2>&1; then
-    log "Bluetooth service already enabled."
+    log "✓ Bluetooth service already enabled"
   else
     log "Enabling Bluetooth service…"
-    run $(need_sudo) systemctl enable bluetooth.service
+    if run $(need_sudo) systemctl enable bluetooth.service; then
+      log "✓ Bluetooth service enabled"
+    else
+      log "⚠ Failed to enable Bluetooth service (may not have hardware)"
+    fi
     # Start the service, but don't fail if it can't (e.g., no hardware).
-    run $(need_sudo) systemctl start bluetooth.service || true
+    if run $(need_sudo) systemctl start bluetooth.service; then
+      log "✓ Bluetooth service started"
+    else
+      log "⚠ Could not start Bluetooth service (this is normal without BT hardware)"
+    fi
   fi
 }
 
@@ -119,16 +134,24 @@ install_laptop_support() {
   install_pkgs "laptop support (ACPI)" "${LAPTOP_PKGS[@]}"
     # Ensure ACPI service is enabled and started
     if systemctl is-enabled acpid.service >/dev/null 2>&1; then
-      log "ACPI service already enabled."
+      log "✓ ACPI service already enabled"
     else
       log "Enabling ACPI (acpid) service…"
-      run $(need_sudo) systemctl enable acpid.service || true
+      if run $(need_sudo) systemctl enable acpid.service; then
+        log "✓ ACPI service enabled"
+      else
+        log "⚠ Failed to enable ACPI service"
+      fi
     fi
     if systemctl is-active acpid.service >/dev/null 2>&1; then
-      log "ACPI service is active."
+      log "✓ ACPI service is active"
     else
       log "Starting ACPI (acpid) service…"
-      run $(need_sudo) systemctl start acpid.service || true
+      if run $(need_sudo) systemctl start acpid.service; then
+        log "✓ ACPI service started"
+      else
+        log "⚠ Failed to start ACPI service"
+      fi
     fi
 }
 
