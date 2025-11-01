@@ -85,7 +85,7 @@ main() {
         log "✓ Using manual profile override: ${profile}"
     fi
 
-    # Validate profile name
+    # Validate profile name (alphanumeric, hyphens, underscores only)
     if [[ ! "${profile}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         log "ERROR: Invalid profile name: ${profile}"
         log "Profile names must contain only alphanumeric characters, hyphens, and underscores"

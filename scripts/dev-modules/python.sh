@@ -44,9 +44,9 @@ install_python(){
   
   # Additional security: Check file size is reasonable (not empty, not suspiciously large)
   local file_size
-  file_size=$(stat -f%z "$pyenv_installer" 2>/dev/null || stat -c%s "$pyenv_installer" 2>/dev/null || echo 0)
+  file_size=$(stat -c%s "$pyenv_installer" 2>/dev/null || echo 0)
   if [[ "$file_size" -lt 100 ]] || [[ "$file_size" -gt 1000000 ]]; then
-    log "ERROR: Installer file size ($file_size bytes) is suspicious"
+    log "ERROR: Installer file size ($file_size bytes) is suspicious (expected 100-1000000 bytes)"
     rm -f "$pyenv_installer"
     return 1
   fi

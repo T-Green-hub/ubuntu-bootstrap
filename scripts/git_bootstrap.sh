@@ -15,8 +15,8 @@ fi
 ORG="T-Green-hub"
 NAME="ubuntu-bootstrap"
 
-# Validate organization and name
-if [[ ! "$ORG" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ! "$NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+# Validate organization and name (GitHub allows alphanumeric, hyphens, underscores, and periods)
+if [[ ! "$ORG" =~ ^[a-zA-Z0-9._-]+$ ]] || [[ ! "$NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   echo "[ERROR] Invalid repository organization or name"
   exit 1
 fi
@@ -74,8 +74,8 @@ if ! git config --get user.email >/dev/null 2>&1; then
   echo "[+] Configuring git user.email…"
   # Use noreply GitHub email pattern for privacy
   EMAIL="${USER}@users.noreply.github.com"
-  # Validate email format is reasonable
-  if [[ "$EMAIL" =~ ^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+$ ]]; then
+  # Validate email format (must have valid domain with TLD)
+  if [[ "$EMAIL" =~ ^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
     git config user.email "$EMAIL"
     echo "[✓] Set git user.email to: $EMAIL"
   else
