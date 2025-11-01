@@ -57,21 +57,35 @@ setup_firewall(){
   log "Configuring UFW firewall…"
 
   # Set default policies
-  $(need_sudo) ufw --force default deny incoming
-  $(need_sudo) ufw --force default allow outgoing
+  if $(need_sudo) ufw --force default deny incoming && \
+     $(need_sudo) ufw --force default allow outgoing; then
+    log "✓ UFW default policies set"
+  else
+    log "ERROR: Failed to set UFW default policies"
+    return 1
+  fi
 
   # Allow SSH (important!)
-  $(need_sudo) ufw allow ssh
+  if $(need_sudo) ufw allow ssh; then
+    log "✓ SSH access allowed"
+  else
+    log "WARNING: Failed to allow SSH in firewall"
+  fi
 
   # Enable firewall
   if $(need_sudo) ufw status | grep -q "Status: active"; then
-    log "UFW already active."
+    log "✓ UFW already active"
   else
     log "Enabling UFW…"
-    $(need_sudo) ufw --force enable
+    if $(need_sudo) ufw --force enable; then
+      log "✓ UFW firewall enabled"
+    else
+      log "ERROR: Failed to enable UFW"
+      return 1
+    fi
   fi
 
-  log "Firewall configured: deny incoming (except SSH), allow outgoing."
+  log "✓ Firewall configured: deny incoming (except SSH), allow outgoing"
 }
 
 # Disable unnecessary services for privacy/security
@@ -118,9 +132,13 @@ DNSStubListener=yes
 EOF
 
   log "DNS configuration created. Restarting systemd-resolved…"
-  $(need_sudo) systemctl restart systemd-resolved || true
+  if $(need_sudo) systemctl restart systemd-resolved; then
+    log "✓ systemd-resolved restarted successfully"
+  else
+    log "WARNING: Failed to restart systemd-resolved"
+  fi
 
-  log "DNS hardening complete (Cloudflare 1.1.1.1, Quad9 9.9.9.9)."
+  log "✓ DNS hardening complete (Cloudflare 1.1.1.1, Quad9 9.9.9.9)"
 }
 
 # Additional privacy tweaks

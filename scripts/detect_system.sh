@@ -7,6 +7,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR  # Used by sourced scripts
 
 # Colors for output
 readonly RED='\033[0;31m'
@@ -204,11 +205,10 @@ detect_battery() {
     echo ""
     log_info "=== Power Management ==="
     
-    local has_battery=0
     local battery_path="/sys/class/power_supply/BAT0"
     
     if [[ -d "$battery_path" ]]; then
-        has_battery=1
+        log "  Battery detected: $battery_path"
         log_success "Battery detected: $(cat ${battery_path}/manufacturer 2>/dev/null || echo 'Unknown')"
         
         # Check for charge threshold support

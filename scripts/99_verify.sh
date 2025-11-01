@@ -56,14 +56,14 @@ nvme_controller_of() {
 
 trim_root(){
   if ! command -v fstrim >/dev/null 2>&1; then
-    log "fstrim not found; skipping."
+    log "⚠ fstrim not found; skipping TRIM operation"
     return 0
   fi
   log "Running fstrim on / (root)…"
   if $(need_sudo) fstrim -v /; then
-    log "fstrim OK."
+    log "✓ fstrim completed successfully"
   else
-    log "fstrim failed (non-SSD or permissions?)."
+    log "⚠ fstrim failed (this is normal for non-SSD or encrypted volumes)"
   fi
 }
 
@@ -105,11 +105,15 @@ smart_check(){
 
 sensors_brief(){
   if ! command -v sensors >/dev/null 2>&1; then
-    log "lm-sensors not installed; skipping sensors."
+    log "⚠ lm-sensors not installed; skipping sensor check"
     return 0
   fi
-  log "Sensors snapshot:"
-  sensors || true
+  log "Hardware sensors snapshot:"
+  if sensors; then
+    log "✓ Sensor data collected"
+  else
+    log "⚠ Unable to read sensor data"
+  fi
 }
 
 fstrim_timer(){
@@ -119,8 +123,12 @@ fstrim_timer(){
 
 nvme_list(){
   if command -v nvme >/dev/null 2>&1; then
-    log "NVMe list:"
-    nvme list || true
+    log "NVMe devices:"
+    if nvme list; then
+      log "✓ NVMe devices listed"
+    else
+      log "⚠ No NVMe devices found or command failed"
+    fi
   fi
 }
 

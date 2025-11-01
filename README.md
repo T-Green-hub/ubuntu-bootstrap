@@ -108,15 +108,22 @@ make verify
 
 ## Need Help?
 
-- Try running in preview mode first:
+**Before installing**, try running in preview mode to see what would be changed:
 
 ```bash
 DRY_RUN=1 make run
 ```
 
-- Check the [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+**Having issues?**
 
-- Open an issue: https://github.com/T-Green-hub/ubuntu-bootstrap/issues
+1. Check the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for common solutions
+2. Review the logs in `logs/<timestamp>/` for detailed error messages
+3. Open an issue with your logs: https://github.com/T-Green-hub/ubuntu-bootstrap/issues
+
+**Pro tips:**
+- Use `--skip-script=XX` to skip problematic scripts (e.g., `--skip-script=40` to skip dev tools)
+- Run `make verify` separately to check system health
+- Set `STRICT=1` to fail on warnings instead of continuing
 
 ## License
 

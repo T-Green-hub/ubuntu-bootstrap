@@ -1,10 +1,22 @@
-# Minimal convenience targets for ubuntu-bootstrap
-# Usage:
-#   make run        # full bootstrap (base packages + hardware + verification)
-#   make verify     # verification only (fstrim, SMART, sensors, timer)
-#   make base       # base packages only
-#   make lint       # lint scripts with shellcheck (requires shellcheck installed)
-#   make release TAG=v0.2.0  # create git tag + GitHub release
+# Ubuntu Bootstrap - Makefile
+# Convenience targets for ubuntu-bootstrap installation and management
+#
+# Quick Start:
+#   make run        # Full bootstrap (base packages + hardware + verification)
+#   make verify     # Verification only (fstrim, SMART, sensors, timer)
+#   make devtools   # Install development tools only
+#   make optional   # Show available optional features
+#
+# Quality & Testing:
+#   make lint       # Full lint with shellcheck (requires shellcheck)
+#   make lint-light # Fast syntax check (no dependencies required)
+#   make detect     # Detect hardware and show recommendations
+#   make check      # Check for deprecated packages
+#
+# Advanced:
+#   make privacy-first  # Install privacy tools before dev tools
+#   make ideal          # Complete setup with all features
+#   make release TAG=vX.Y.Z  # Create git tag + GitHub release
 
 SHELL := /bin/bash
 .ONESHELL:

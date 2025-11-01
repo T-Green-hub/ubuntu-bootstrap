@@ -46,13 +46,17 @@ if [[ -z "${LOG_DIR:-}" ]]; then
   DEFAULT_LOG_DIR="$REPO_DIR/logs/$TIMESTAMP"
   if mkdir -p "$DEFAULT_LOG_DIR" 2>/dev/null; then
     LOG_DIR="$DEFAULT_LOG_DIR"
+    log "Logging to: $LOG_DIR"
   else
     LOG_DIR=""
+    log "WARNING: Could not create log directory, proceeding without logging"
   fi
 else
   # Respect user-provided LOG_DIR; attempt to create if missing
-  if ! mkdir -p "$LOG_DIR" 2>/dev/null; then
-    log "Logging disabled: cannot create LOG_DIR='$LOG_DIR'"
+  if mkdir -p "$LOG_DIR" 2>/dev/null; then
+    log "Using custom log directory: $LOG_DIR"
+  else
+    log "WARNING: Cannot create LOG_DIR='$LOG_DIR', logging disabled"
     LOG_DIR=""
   fi
 fi

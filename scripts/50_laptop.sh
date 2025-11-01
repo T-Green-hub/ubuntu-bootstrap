@@ -80,9 +80,16 @@ main() {
 
     if [[ "${profile}" == "auto" ]]; then
         profile=$(detect_hardware)
-        log "Auto-detected profile: ${profile}"
+        log "✓ Auto-detected profile: ${profile}"
     else
-        log "Using manual profile override: ${profile}"
+        log "✓ Using manual profile override: ${profile}"
+    fi
+
+    # Validate profile name
+    if [[ ! "${profile}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log "ERROR: Invalid profile name: ${profile}"
+        log "Profile names must contain only alphanumeric characters, hyphens, and underscores"
+        exit 1
     fi
 
     # Find and execute profile script
@@ -91,9 +98,14 @@ main() {
     if [[ -f "${profile_script}" ]]; then
         log "Executing hardware profile: ${profile}"
         log "---"
-        bash "${profile_script}"
-        log "---"
-        log "Hardware optimization complete"
+        if bash "${profile_script}"; then
+            log "---"
+            log "✓ Hardware optimization complete"
+        else
+            log "---"
+            log "ERROR: Hardware profile execution failed"
+            exit 1
+        fi
     else
         log "ERROR: Profile script not found: ${profile_script}"
         log "Available profiles: thinkpad-t14, hp-laptop-15, generic"

@@ -24,24 +24,44 @@ need_sudo(){ if [[ $EUID -ne 0 ]]; then echo sudo; fi; }
 ensure_apt_conf(){
   if [[ ! -f "$APT_NET_CONF" ]]; then
     log "Adding APT net/retry conf → $APT_NET_CONF"
-    printf '%s\n' "$APT_NET_BODY" | $(need_sudo) tee "$APT_NET_CONF" >/dev/null
+    if printf '%s\n' "$APT_NET_BODY" | $(need_sudo) tee "$APT_NET_CONF" >/dev/null; then
+      log "✓ APT configuration created successfully"
+    else
+      log "ERROR: Failed to create APT configuration"
+      return 1
+    fi
   else
-    log "APT conf present: $APT_NET_CONF"
+    log "✓ APT conf already present: $APT_NET_CONF"
   fi
 }
 
-apt_refresh(){ log "apt update (IPv4, retries)…"; $(need_sudo) apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=5; }
+apt_refresh(){ 
+  log "Running apt update (IPv4, with retries)…"
+  if $(need_sudo) apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=5; then
+    log "✓ Package lists updated successfully"
+  else
+    log "ERROR: apt update failed"
+    return 1
+  fi
+}
 
 install_pkgs(){
   local to_install=()
   for p in "${REQUIRED_PKGS[@]}"; do
-    dpkg -s "$p" >/dev/null 2>&1 || to_install+=("$p")
+    if ! dpkg -s "$p" >/dev/null 2>&1; then
+      to_install+=("$p")
+    fi
   done
   if ((${#to_install[@]})); then
-    log "Installing: ${to_install[*]}"
-    $(need_sudo) apt-get install -y "${to_install[@]}"
+    log "Installing ${#to_install[@]} packages: ${to_install[*]}"
+    if $(need_sudo) apt-get install -y "${to_install[@]}"; then
+      log "✓ All packages installed successfully"
+    else
+      log "ERROR: Package installation failed"
+      return 1
+    fi
   else
-    log "Nothing new to install."
+    log "✓ All required packages already installed"
   fi
 }
 

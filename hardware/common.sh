@@ -1,33 +1,45 @@
 #!/usr/bin/env bash
 # Common functions for laptop hardware optimization
+# Provides shared utilities for APT management, power optimization, and hardware detection
 
 set -euo pipefail
+
+###############################################################################
+# Logging and command execution
+###############################################################################
 
 log() {
     printf '[%s] %s\n' "$(date -Iseconds)" "$*"
 }
 
 run() {
-    # Log and run a command; respects DRY_RUN=1
+    # Log and run a command; respects DRY_RUN=1 environment variable
     if [[ "${DRY_RUN:-0}" == "1" ]]; then
         log "[DRY RUN] $*"
         return 0
     fi
-    log "$*"
+    log "Running: $*"
     "$@"
 }
 
 need_sudo() {
+    # Returns 'sudo' if not running as root, empty string otherwise
     if [[ $EUID -ne 0 ]]; then
         echo sudo
     fi
 }
 
+###############################################################################
+# Package and command utilities
+###############################################################################
+
 is_installed() {
+    # Check if a package is installed
     dpkg -s "$1" >/dev/null 2>&1
 }
 
 command_exists() {
+    # Check if a command is available in PATH
     command -v "$1" >/dev/null 2>&1
 }
 

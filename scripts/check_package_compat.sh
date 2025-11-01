@@ -119,7 +119,8 @@ scan_all_scripts() {
     fi
     
     local total_issues=0
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     # Check all bootstrap scripts
     for script in "$script_dir"/*.sh; do

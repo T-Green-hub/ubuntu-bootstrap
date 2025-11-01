@@ -17,17 +17,27 @@ ensure_repositories(){
   
   # Check if repos already enabled
   if grep -qE '^deb.*universe' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null; then
-    log "Universe repository already enabled."
+    log "✓ Universe repository already enabled"
   else
     log "Adding universe repository…"
-    $(need_sudo) add-apt-repository -y universe
+    if $(need_sudo) add-apt-repository -y universe; then
+      log "✓ Universe repository added"
+    else
+      log "ERROR: Failed to add universe repository"
+      return 1
+    fi
   fi
   
   if grep -qE '^deb.*multiverse' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null; then
-    log "Multiverse repository already enabled."
+    log "✓ Multiverse repository already enabled"
   else
     log "Adding multiverse repository…"
-    $(need_sudo) add-apt-repository -y multiverse
+    if $(need_sudo) add-apt-repository -y multiverse; then
+      log "✓ Multiverse repository added"
+    else
+      log "ERROR: Failed to add multiverse repository"
+      return 1
+    fi
   fi
 }
 
@@ -36,13 +46,13 @@ setup_apt_performance(){
   local conf_file="/etc/apt/apt.conf.d/99-bootstrap-performance"
   
   if [[ -f "$conf_file" ]]; then
-    log "APT performance config already exists: $conf_file"
+    log "✓ APT performance config already exists: $conf_file"
     return 0
   fi
   
   log "Creating APT performance configuration → $conf_file"
   
-  cat <<'EOF' | $(need_sudo) tee "$conf_file" >/dev/null
+  if cat <<'EOF' | $(need_sudo) tee "$conf_file" >/dev/null
 # Bootstrap APT performance tuning
 # Parallel downloads and connection optimization
 
@@ -60,8 +70,12 @@ Dpkg::Options {
    "--force-confold";
 }
 EOF
-  
-  log "APT performance config created."
+  then
+    log "✓ APT performance config created"
+  else
+    log "ERROR: Failed to create APT performance config"
+    return 1
+  fi
 }
 
 # Install essential repository management tools
@@ -76,11 +90,16 @@ install_repo_tools(){
   done
   
   if ((${#to_install[@]})); then
-    log "Installing repository tools: ${to_install[*]}"
+    log "Installing ${#to_install[@]} repository tools: ${to_install[*]}"
     apt_safe update -qq
-    apt_safe install -y "${to_install[@]}"
+    if apt_safe install -y "${to_install[@]}"; then
+      log "✓ Repository tools installed successfully"
+    else
+      log "ERROR: Failed to install repository tools"
+      return 1
+    fi
   else
-    log "Repository tools already installed."
+    log "✓ All repository tools already installed"
   fi
 }
 

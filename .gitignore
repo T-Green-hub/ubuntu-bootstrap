@@ -19,12 +19,22 @@ out/
 # Logs & artifacts
 logs/
 *.log
+
+# Archives & packages
 *.tgz
 *.tar.gz
+*.tar.xz
+*.tar.bz2
 *.sha256
+*.sha512
 *.zip
 *.deb
+*.rpm
 *.iso
+
+# Temporary installation files
+*.part
+*.download
 
 # Python (if helpers later)
 __pycache__/
