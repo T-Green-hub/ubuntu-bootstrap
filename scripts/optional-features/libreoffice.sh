@@ -72,7 +72,8 @@ verify_libreoffice() {
     for comp in "${components[@]}"; do
         if command -v "lo${comp}" >/dev/null 2>&1 || \
            [[ -f "/usr/share/applications/libreoffice-${comp}.desktop" ]]; then
-            ((found++))
+            # Use pre-increment to ensure a zero exit status under 'set -e'
+            ((++found))
         fi
     done
     
