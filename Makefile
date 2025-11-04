@@ -52,6 +52,78 @@ lint-light: ## Fast syntax check (bash -n) for all scripts (no shellcheck needed
 > done; \
 > exit $$rc
 
+test: ## Run full test suite for all modules
+> @echo "Running full test suite..."
+> @rc=0; \
+> for f in scripts/dev-modules/test_*.sh scripts/optional-features/test_*.sh; do \
+>   if [ -f "$$f" ]; then \
+>     echo ""; \
+>     echo "Running: $$f"; \
+>     bash "$$f" || rc=1; \
+>   fi; \
+> done; \
+> if [ $$rc -eq 0 ]; then \
+>   echo ""; \
+>   echo "✓ All tests passed!"; \
+> else \
+>   echo ""; \
+>   echo "✗ Some tests failed!"; \
+>   exit 1; \
+> fi
+
+test-quick: ## Run quick smoke tests only
+> @echo "Running quick smoke tests..."
+> @for f in scripts/dev-modules/test_*.sh scripts/optional-features/test_*.sh; do \
+>   if [ -f "$$f" ]; then \
+>     echo "Testing: $$(basename $$f)"; \
+>     bash "$$f" || exit 1; \
+>   fi; \
+> done
+> @echo "✓ Quick tests passed!"
+
+test-dry-run: ## Test all scripts in DRY_RUN mode
+> @echo "Testing DRY_RUN mode for bootstrap..."
+> DRY_RUN=1 bash scripts/run_bootstrap.sh
+> @echo ""
+> @echo "Testing DRY_RUN mode for optional features..."
+> DRY_RUN=1 bash scripts/60_optional-features.sh protonvpn || true
+> DRY_RUN=1 bash scripts/60_optional-features.sh brave || true
+> @echo ""
+> @echo "✓ DRY_RUN tests passed!"
+
+test-syntax: ## Fast syntax validation for all shell scripts
+> @echo "Checking syntax of all shell scripts..."
+> @rc=0; \
+> for f in $$(find . -name '*.sh' -type f); do \
+>   bash -n "$$f" || { echo "Syntax error in $$f"; rc=1; }; \
+> done; \
+> if [ $$rc -eq 0 ]; then \
+>   echo "✓ All scripts have valid syntax"; \
+> else \
+>   echo "✗ Syntax errors found"; \
+>   exit 1; \
+> fi
+
+test-module: ## Test specific module. Usage: make test-module MODULE=utilities
+> @if [ -z "$(MODULE)" ]; then \
+>   echo "ERROR: MODULE not specified. Usage: make test-module MODULE=utilities"; \
+>   exit 1; \
+> fi
+> @if [ -f "scripts/dev-modules/test_$(MODULE).sh" ]; then \
+>   bash "scripts/dev-modules/test_$(MODULE).sh"; \
+> elif [ -f "scripts/optional-features/test_$(MODULE).sh" ]; then \
+>   bash "scripts/optional-features/test_$(MODULE).sh"; \
+> else \
+>   echo "ERROR: Test file not found for module: $(MODULE)"; \
+>   echo "Available modules:"; \
+>   for f in scripts/dev-modules/test_*.sh scripts/optional-features/test_*.sh; do \
+>     if [ -f "$$f" ]; then \
+>       echo "  - $$(basename $$f | sed 's/test_//' | sed 's/.sh//')"; \
+>     fi; \
+>   done; \
+>   exit 1; \
+> fi
+
 devtools: ## Install development tools (Docker, Node, Python, Rust, Go, VS Code, utilities)
 > "$(DIR)/scripts/40_dev-tools.sh"
 
