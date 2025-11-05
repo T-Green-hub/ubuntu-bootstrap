@@ -258,15 +258,15 @@ assert_exit_code() {
 
 test_pass() {
     local msg="$1"
-    ((TESTS_RUN++))
-    ((TESTS_PASSED++))
+    ((TESTS_RUN++)) || true
+    ((TESTS_PASSED++)) || true
     echo -e "  ${T_GREEN}✓${T_NC} $msg"
 }
 
 test_fail() {
     local msg="$1"
-    ((TESTS_RUN++))
-    ((TESTS_FAILED++))
+    ((TESTS_RUN++)) || true
+    ((TESTS_FAILED++)) || true
     FAILED_TESTS+=("$msg")
     echo -e "  ${T_RED}✗${T_NC} $msg"
 }
@@ -274,8 +274,8 @@ test_fail() {
 test_skip() {
     local msg="$1"
     local reason="${2:-}"
-    ((TESTS_RUN++))
-    ((TESTS_SKIPPED++))
+    ((TESTS_RUN++)) || true
+    ((TESTS_SKIPPED++)) || true
     SKIPPED_TESTS+=("$msg")
     if [[ -n "$reason" ]]; then
         echo -e "  ${T_YELLOW}⊘${T_NC} $msg (SKIPPED: $reason)"
