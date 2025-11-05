@@ -32,9 +32,10 @@ make run
 - 📖 [Quick Start Guide](docs/QUICK_START.md) - Step by step instructions
 - 📚 [Full Installation Guide](docs/INSTALL.md) - Detailed explanations
 - 🔧 [Troubleshooting](docs/TROUBLESHOOTING.md) - Solutions to common issues
-- 💻 [Hardware Profiles](docs/HARDWARE_PROFILES.md) - Laptop optimizations
+- �️  [Uninstall Guide](docs/UNINSTALL.md) - Safe removal of installed components
+- �💻 [Hardware Profiles](docs/HARDWARE_PROFILES.md) - Laptop optimizations
 - 🔍 [System Detection](docs/SYSTEM_DETECTION.md) - Hardware detection and compatibility
- - ✅ [Post‑Install Guide](docs/POST_INSTALL.md) - Best order and practices after bootstrap
+- ✅ [Post‑Install Guide](docs/POST_INSTALL.md) - Best order and practices after bootstrap
 
 ## Key Features
 
@@ -72,7 +73,8 @@ Recommended order: install optional features after base/dev-tools for faster run
 - Automatic apt-lock handling
 - Network operation retries
 - Per-script logging
-- Full rollback stubs
+- Full uninstall support for dev modules
+- Automatic backups before uninstall
 
 ## Quick Commands
 
@@ -101,6 +103,12 @@ make privacy-first
 # Hardware detection and compatibility check
 make detect    # Show hardware info and recommendations
 make check     # Check for deprecated packages
+
+# Uninstall developer modules (safe with backups)
+source scripts/dev-modules/python.sh && uninstall_python
+source scripts/dev-modules/nodejs.sh && uninstall_nodejs
+source scripts/dev-modules/rust.sh && uninstall_rust
+# See docs/UNINSTALL.md for complete guide
 
 # Verify installation
 make verify
