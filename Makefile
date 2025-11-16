@@ -14,10 +14,19 @@ SHELL := /bin/bash
 
 DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
-.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first
+.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first menu preflight t14s-fixes
 
 help: ## Show targets
-> @grep -E '^[a-zA-Z_\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
+> @grep -E '^[a-zA-Z_\\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
+
+menu: ## Interactive menu (user-friendly guided setup) ⭐ NEW
+> "$(DIR)/scripts/interactive_menu.sh"
+
+preflight: ## Pre-flight system check (verify readiness) ⭐ NEW
+> "$(DIR)/scripts/preflight_check.sh"
+
+t14s-fixes: ## ThinkPad T14s Gen 2 specific fixes ⭐ NEW
+> "$(DIR)/scripts/fix_t14s_gen2.sh"
 
 run: ## Base packages + verification
 > "$(DIR)/scripts/run_bootstrap.sh"

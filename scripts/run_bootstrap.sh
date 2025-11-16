@@ -2,17 +2,44 @@
 # Complete bootstrap runner (idempotent).
 # Auto-discovers and runs all numbered scripts in order, then verification.
 # Usage: ./run_bootstrap.sh [--dry-run] [--skip-script=NN]
-# Version: 0.2.0
+# Version: 3.0.0
 
 set -euo pipefail
 IFS=$'\n\t'
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/." && pwd)"
 SCRIPTS_DIR="$REPO_DIR/scripts"
 DRY_RUN="${DRY_RUN:-0}"  # Support environment variable
 declare -a SKIP_SCRIPTS=()
 
+# Timing
+START_TIME=$(date +%s)
+
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
+
+# Progress indicator
+progress() {
+  local current="$1"
+  local total="$2"
+  local desc="$3"
+  local pct=$(( (current * 100) / total ))
+  local bar_width=40
+  local filled=$(( (pct * bar_width) / 100 ))
+  local empty=$((bar_width - filled))
+  
+  printf "\r["${NC}
+  printf "%${filled}s" | tr ' ' '='
+  printf "%${empty}s" | tr ' ' '-'
+  printf "] %3d%% | Step %d/%d: %s" "$pct" "$current" "$total" "$desc"
+}
+
+elapsed_time() {
+  local end_time=$(date +%s)
+  local elapsed=$((end_time - START_TIME))
+  local mins=$((elapsed / 60))
+  local secs=$((elapsed % 60))
+  printf "%dm %ds" "$mins" "$secs"
+}
 
 # Network connectivity preflight
 check_network() {
@@ -180,6 +207,17 @@ declare -a FAILED_SCRIPTS=()
 declare -a SUCCESS_SCRIPTS=()
 declare -a SKIPPED_SCRIPTS=()
 
+# Show startup banner
+if [[ $DRY_RUN -eq 0 ]]; then
+  echo "╔═══════════════════════════════════════════════════════════════╗"
+  echo "║                                                               ║"
+  echo "║              Ubuntu Bootstrap v0.2.0                          ║"
+  echo "║         Complete System Setup for Ubuntu 24.04 LTS            ║"
+  echo "║                                                               ║"
+  echo "╚═══════════════════════════════════════════════════════════════╝"
+  echo ""
+fi
+
 # Collect all numbered scripts (00-99) that are non-empty
 mapfile -t scripts < <(
   find "$SCRIPTS_DIR" -maxdepth 1 -name '[0-9][0-9]_*.sh' -type f |
@@ -196,6 +234,15 @@ if [[ ${#scripts[@]} -eq 0 ]]; then
 fi
 
 log "Bootstrap sequence: ${#scripts[@]} scripts"
+if [[ $DRY_RUN -eq 0 ]]; then
+  echo ""
+  echo "Estimated time: 15-30 minutes (depending on internet speed)"
+  echo "Scripts to run:"
+  for script in "${scripts[@]}"; do
+    echo "  • $(basename "$script")"
+  done
+  echo ""
+fi
 echo ""
 
 # Network preflight (skip in dry-run)
@@ -233,6 +280,12 @@ for i in "${!scripts[@]}"; do
     continue
   fi
 
+  # Show progress
+  if [[ $DRY_RUN -eq 0 ]]; then
+    progress "$step" "$total" "$script_name"
+    echo ""  # New line after progress bar
+  fi
+  
   log "[$step/$total] Running $script_name…"
   # Best-effort wait to avoid apt/dpkg lock contention between scripts
   wait_for_dpkg_lock 180
@@ -284,7 +337,9 @@ for i in "${!scripts[@]}"; do
 done
 
 # Summary
+echo ""
 log "=== Bootstrap Summary ==="
+log "Total time: $(elapsed_time)"
 log "Successful: ${#SUCCESS_SCRIPTS[@]}/${#scripts[@]}"
 for script in "${SUCCESS_SCRIPTS[@]}"; do
   log "  ✓ $script"

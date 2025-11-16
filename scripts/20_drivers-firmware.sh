@@ -89,10 +89,26 @@ install_graphics() {
   local gpu_info pkgs_to_install=()
   gpu_info="$(lspci | grep -i vga || true)"
 
-  # Detect GPU vendor
+  # Detect GPU vendor and specific models
   if [[ "$gpu_info" =~ Intel ]]; then
     log "Intel GPU detected, installing Intel graphics drivers…"
-    pkgs_to_install+=("${INTEL_GRAPHICS_PKGS[@]}")
+    
+    # Check for Tiger Lake / Iris Xe (11th gen and newer)
+    if echo "$gpu_info" | grep -qE "TigerLake|Iris.*Xe|Alder.*Lake|Raptor.*Lake"; then
+      log "Tiger Lake or newer Intel GPU detected (Iris Xe/Arc)"
+      log "Requiring intel-media-va-driver-non-free for hardware acceleration"
+      # Iris Xe needs the non-free media driver for full acceleration
+      pkgs_to_install+=(
+        mesa-vulkan-drivers
+        intel-media-va-driver-non-free
+        vainfo
+        vulkan-tools
+      )
+    else
+      # Older Intel GPUs (HD Graphics, UHD pre-11th gen)
+      log "Legacy Intel GPU detected (HD/UHD Graphics)"
+      pkgs_to_install+=("${INTEL_GRAPHICS_PKGS[@]}")
+    fi
   elif [[ "$gpu_info" =~ NVIDIA ]]; then
     log "NVIDIA GPU detected. For proprietary drivers, install via 'ubuntu-drivers' or 'Additional Drivers'."
     # Add basic mesa support

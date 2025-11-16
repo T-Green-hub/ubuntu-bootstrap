@@ -6,20 +6,35 @@
 Set up Ubuntu 24.04 (Noble) for development and daily use with one command. Features:
 
 - 🚀 **5-minute setup** - Everything you need, installed correctly
-- 🔋 **Smart power management** - Better battery life on laptops
+- 🎯 **Interactive menu** - User-friendly guided installation
+- 🔋 **Smart power management** - Better battery life on laptops  
+- 💻 **Hardware-specific optimizations** - ThinkPad T14s Gen 2 & more
 - 🛡️ **Privacy & security** - Hardened settings and firewall
 - 🛠️ **Developer ready** - Docker, Python, Node.js, and more
-- ✅ **Safe to run** - Preview changes, no surprises
+- ✅ **Safe to run** - Preview changes, progress tracking, no surprises
 
 ## Getting Started
 
-First, install prerequisites:
+### Quick Start (Interactive Menu)
 
 ```bash
+# Install prerequisites
 sudo apt update && sudo apt install -y git curl make
+
+# Clone and run interactive menu
+git clone https://github.com/T-Green-hub/ubuntu-bootstrap.git
+cd ubuntu-bootstrap
+bash scripts/interactive_menu.sh
 ```
 
-Then get the code and run:
+The interactive menu provides:
+- 🎯 Hardware detection (auto-detects ThinkPad T14s Gen 2!)
+- 📊 Progress indicators and time estimates
+- 🔍 Pre-flight system checks
+- 📚 Built-in documentation browser
+- ⚙️ Selective installation options
+
+### Traditional Method
 
 ```bash
 git clone https://github.com/T-Green-hub/ubuntu-bootstrap.git
@@ -27,13 +42,53 @@ cd ubuntu-bootstrap
 make run
 ```
 
+## Hardware Support
+
+### ThinkPad T14s Gen 2 (11th Gen Intel Tiger Lake)
+
+**Special optimizations included:**
+- ✅ Intel Iris Xe graphics (hardware acceleration)
+- ✅ WiFi 6 AX201 (stability & performance)
+- ✅ Battery charge thresholds (20-80% for longevity)
+- ✅ TrackPoint configuration
+- ✅ Power management tuning
+- ✅ Kernel 6.x compatibility
+
+**Quick setup:**
+```bash
+cd ubuntu-bootstrap
+
+# 1. Check system readiness
+bash scripts/preflight_check.sh
+
+# 2. Run bootstrap
+make run
+
+# 3. Apply T14s-specific fixes
+bash scripts/fix_t14s_gen2.sh
+
+# 4. Reboot
+sudo reboot
+```
+
+📖 **See:** [ThinkPad T14s Gen 2 Complete Guide](docs/T14S_GEN2_QUICK_START.md)
+
+### Other Laptops
+
+- ThinkPad T14 (auto-detected)
+- HP Laptop 15 (auto-detected)
+- Generic laptop profile (fallback)
+
 ## Documentation
 
+- 🎯 **[Interactive Menu](scripts/interactive_menu.sh)** - User-friendly guided setup ⭐ NEW
+- 💻 **[ThinkPad T14s Gen 2 Guide](docs/T14S_GEN2_QUICK_START.md)** - Complete Tiger Lake setup ⭐ NEW
+- 🔍 **[Pre-Flight Check](scripts/preflight_check.sh)** - System readiness verification ⭐ NEW
 - 📖 [Quick Start Guide](docs/QUICK_START.md) - Step by step instructions
 - 📚 [Full Installation Guide](docs/INSTALL.md) - Detailed explanations
 - 🔧 [Troubleshooting](docs/TROUBLESHOOTING.md) - Solutions to common issues
-- �️  [Uninstall Guide](docs/UNINSTALL.md) - Safe removal of installed components
-- �💻 [Hardware Profiles](docs/HARDWARE_PROFILES.md) - Laptop optimizations
+- 🗑️ [Uninstall Guide](docs/UNINSTALL.md) - Safe removal of installed components
+- 💻 [Hardware Profiles](docs/HARDWARE_PROFILES.md) - Laptop optimizations
 - 🔍 [System Detection](docs/SYSTEM_DETECTION.md) - Hardware detection and compatibility
 - ✅ [Post‑Install Guide](docs/POST_INSTALL.md) - Best order and practices after bootstrap
 
@@ -79,6 +134,12 @@ Recommended order: install optional features after base/dev-tools for faster run
 ## Quick Commands
 
 ```bash
+# Interactive menu (recommended for new users)
+bash scripts/interactive_menu.sh
+
+# Pre-flight check (verify system readiness)
+bash scripts/preflight_check.sh
+
 # Full installation
 make run
 
@@ -90,6 +151,9 @@ scripts/run_bootstrap.sh --skip-script=40
 
 # Install specific dev tools
 scripts/40_dev-tools.sh docker nodejs python
+
+# ThinkPad T14s Gen 2 specific fixes
+bash scripts/fix_t14s_gen2.sh
 
 # Install optional features (Brave, ProtonVPN, VLC, LibreOffice)
 make optional                                    # Show available features
