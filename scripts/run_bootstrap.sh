@@ -7,7 +7,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/." && pwd)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIR="$REPO_DIR/scripts"
 DRY_RUN="${DRY_RUN:-0}"  # Support environment variable
 declare -a SKIP_SCRIPTS=()
