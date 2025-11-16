@@ -45,11 +45,18 @@ DEV_MODULES=(
 # shellcheck source=dev-modules/go.sh
 # shellcheck source=dev-modules/vscode.sh
 # shellcheck source=dev-modules/utilities.sh
+
+# Preserve SCRIPT_DIR before sourcing modules (they reset it)
+PARENT_SCRIPT_DIR="$SCRIPT_DIR"
+
 for mod in "${DEV_MODULES[@]}"; do
   name="${mod%%:*}"
   # shellcheck disable=SC1090
-  source "${SCRIPT_DIR}/dev-modules/${name}.sh"
+  source "${PARENT_SCRIPT_DIR}/dev-modules/${name}.sh"
 done
+
+# Restore SCRIPT_DIR after sourcing all modules
+SCRIPT_DIR="$PARENT_SCRIPT_DIR"
 
 
 # Move main and verify_installation to top so main is defined before being called
