@@ -17,20 +17,49 @@ START_TIME=$(date +%s)
 
 log(){ printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 
-# Progress indicator
+# Trap handler for graceful cleanup
+cleanup_on_exit() {
+    local exit_code=$?
+    if ((exit_code != 0)); then
+        log "Bootstrap interrupted or failed with exit code $exit_code"
+        log "Restoring system services..."
+        restore_apt_guard 2>/dev/null || true
+    fi
+    return $exit_code
+}
+trap cleanup_on_exit EXIT
+
+# Progress indicator with improved visual feedback and ETA
 progress() {
   local current="$1"
   local total="$2"
   local desc="$3"
   local pct=$(( (current * 100) / total ))
-  local bar_width=40
+  local bar_width=50
   local filled=$(( (pct * bar_width) / 100 ))
   local empty=$((bar_width - filled))
   
-  printf "\r["${NC}
-  printf "%${filled}s" | tr ' ' '='
-  printf "%${empty}s" | tr ' ' '-'
-  printf "] %3d%% | Step %d/%d: %s" "$pct" "$current" "$total" "$desc"
+  # Calculate ETA
+  local elapsed=$(($(date +%s) - START_TIME))
+  local eta="--:--"
+  if ((current > 0 && pct > 0)); then
+    local total_estimated=$((elapsed * 100 / pct))
+    local remaining=$((total_estimated - elapsed))
+    local eta_min=$((remaining / 60))
+    local eta_sec=$((remaining % 60))
+    eta=$(printf "%02d:%02d" "$eta_min" "$eta_sec")
+  fi
+  
+  # Use green for filled portion
+  printf "\r\033[0;32m["
+  printf "%${filled}s" | tr ' ' '█'
+  printf "\033[0m"
+  printf "%${empty}s" | tr ' ' '░'
+  printf "] \033[1m%3d%%\033[0m | Step \033[1;36m%d/%d\033[0m | ETA: \033[1;33m%s\033[0m | %s" \
+    "$pct" "$current" "$total" "$eta" "$desc"
+  
+  # Clear to end of line
+  printf "\033[K"
 }
 
 elapsed_time() {

@@ -1,16 +1,19 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Complete system fixes for ThinkPad T14s Gen 2
 # Based on deep analysis of current state
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
 
 echo "=== ThinkPad T14s Gen 2 - Post-Bootstrap Fixes ==="
 echo ""
 
 # 1. Install missing diagnostic tools
-echo "1. Installing diagnostic tools..."
-sudo apt update -qq
-sudo apt install -y mesa-utils vainfo pulseaudio-utils
+log "1. Installing diagnostic tools..."
+apt_safe update -qq
+apt_safe install -y mesa-utils vainfo pulseaudio-utils
 echo "   ✓ Diagnostic tools installed"
 echo ""
 

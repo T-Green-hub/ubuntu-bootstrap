@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/." && pwd)"
 
 # Colors
 readonly RED='\033[0;31m'
@@ -15,6 +15,29 @@ readonly CYAN='\033[0;36m'
 readonly MAGENTA='\033[0;35m'
 readonly BOLD='\033[1m'
 readonly NC='\033[0m'
+
+# Trap handler for graceful exit
+cleanup() {
+    echo ""
+    echo -e "${YELLOW}Operation interrupted. Exiting cleanly...${NC}"
+    exit 130
+}
+trap cleanup SIGINT SIGTERM
+
+# Spinner for visual feedback
+show_spinner() {
+    local pid=$1
+    local message="${2:-Processing}"
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    
+    while kill -0 "$pid" 2>/dev/null; do
+        local char="${spinstr:i++%${#spinstr}:1}"
+        printf "\r${CYAN}%s${NC} %s" "$char" "$message"
+        sleep 0.1
+    done
+    printf "\r%*s\r" "$((${#message} + 10))" ""
+}
 
 show_banner() {
     clear
@@ -112,39 +135,66 @@ run_full_bootstrap() {
     echo -e "${CYAN}║  Starting Full Bootstrap                      ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${YELLOW}This will:${NC}"
-    echo "  1. Configure APT and repositories"
-    echo "  2. Install base packages and tools"
-    echo "  3. Install drivers and firmware"
-    echo "  4. Apply privacy hardening"
-    echo "  5. Optimize for laptop (if applicable)"
-    echo "  6. Verify installation"
+    echo -e "${BOLD}${YELLOW}⚡ This will:${NC}"
+    echo -e "  ${GREEN}✓${NC} Configure APT and repositories"
+    echo -e "  ${GREEN}✓${NC} Install base packages and tools"
+    echo -e "  ${GREEN}✓${NC} Install drivers and firmware"
+    echo -e "  ${GREEN}✓${NC} Apply privacy hardening"
+    echo -e "  ${GREEN}✓${NC} Optimize for laptop (if applicable)"
+    echo -e "  ${GREEN}✓${NC} Verify installation"
     echo ""
-    echo -e "${YELLOW}Estimated time: 15-30 minutes${NC}"
-    echo -e "${YELLOW}Network required: Yes${NC}"
+    echo -e "${BOLD}Requirements:${NC}"
+    echo -e "  ${CYAN}⏱${NC}  Time: ~15-30 minutes"
+    echo -e "  ${CYAN}🌐${NC} Network: Required (downloading packages)"
+    echo -e "  ${CYAN}💾${NC} Disk: ~2-5 GB will be downloaded"
     echo ""
-    read -p "Continue? (y/N): " -r
+    echo -e "${YELLOW}⚠  Your system will be optimized but NOT rebooted automatically.${NC}"
+    echo ""
+    read -p "$(echo -e "${BOLD}Continue with full bootstrap? (y/N):${NC} ")" -r
     if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "${CYAN}Starting bootstrap... Please be patient.${NC}"
         echo ""
         bash "$REPO_DIR/scripts/run_bootstrap.sh"
         echo ""
-        echo -e "${GREEN}✓ Bootstrap complete!${NC}"
+        echo -e "${GREEN}${BOLD}✓ Bootstrap complete!${NC}"
         echo ""
         show_next_steps
         read -p "Press Enter to return to menu..." -r
+    else
+        echo -e "${YELLOW}Bootstrap cancelled.${NC}"
+        sleep 1
     fi
 }
 
 run_base_only() {
-    echo -e "${CYAN}Installing base packages only...${NC}"
-    echo -e "${YELLOW}Estimated time: 5-10 minutes${NC}"
+    echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║  Base System Installation Only                ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
     echo ""
-    read -p "Continue? (y/N): " -r
+    echo -e "${YELLOW}⚡ This will install:${NC}"
+    echo -e "  ${GREEN}✓${NC} Essential system packages"
+    echo -e "  ${GREEN}✓${NC} Development tools (build-essential, git, etc)"
+    echo -e "  ${GREEN}✓${NC} System utilities"
+    echo ""
+    echo -e "${YELLOW}⊗ This will SKIP:${NC}"
+    echo -e "  ${RED}✗${NC} Hardware drivers"
+    echo -e "  ${RED}✗${NC} Laptop optimizations"
+    echo -e "  ${RED}✗${NC} Optional features"
+    echo ""
+    echo -e "${CYAN}⏱${NC}  Estimated time: ~5-10 minutes"
+    echo ""
+    read -p "$(echo -e "${BOLD}Continue? (y/N):${NC} ")" -r
     if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
         bash "$REPO_DIR/scripts/run_bootstrap.sh" --skip-script=20 --skip-script=30 --skip-script=40 --skip-script=50 --skip-script=60
         echo ""
-        echo -e "${GREEN}✓ Base installation complete!${NC}"
+        echo -e "${GREEN}${BOLD}✓ Base installation complete!${NC}"
+        echo ""
         read -p "Press Enter to return to menu..." -r
+    else
+        echo -e "${YELLOW}Installation cancelled.${NC}"
+        sleep 1
     fi
 }
 
@@ -366,6 +416,23 @@ show_next_steps() {
     echo ""
 }
 
+# Validate numeric input
+validate_choice() {
+    local input="$1"
+    local min="$2"
+    local max="$3"
+    
+    if [[ ! "$input" =~ ^[0-9]+$ ]]; then
+        return 1
+    fi
+    
+    if ((input < min || input > max)); then
+        return 1
+    fi
+    
+    return 0
+}
+
 main() {
     while true; do
         show_banner
@@ -374,6 +441,13 @@ main() {
         
         read -p "Choose an option (1-9): " -r choice
         echo ""
+        
+        # Validate input
+        if ! validate_choice "$choice" 1 9; then
+            echo -e "${RED}✗ Invalid option '$choice'. Please enter a number between 1-9.${NC}"
+            sleep 2
+            continue
+        fi
         
         case $choice in
             1) run_full_bootstrap ;;
@@ -388,10 +462,6 @@ main() {
                 echo -e "${GREEN}Thank you for using Ubuntu Bootstrap!${NC}"
                 echo ""
                 exit 0
-                ;;
-            *)
-                echo -e "${RED}Invalid option. Please choose 1-9.${NC}"
-                sleep 2
                 ;;
         esac
     done

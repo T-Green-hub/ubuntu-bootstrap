@@ -49,19 +49,26 @@ check_network() {
     local hosts=("1.1.1.1" "8.8.8.8" "github.com")
     local reachable=0
     
+    echo -n "  Testing connectivity"
     for host in "${hosts[@]}"; do
-        if ping -c 1 -W 2 "$host" >/dev/null 2>&1; then
-            success "Can reach $host"
+        echo -n "."
+        if ping -c 1 -W 1 "$host" >/dev/null 2>&1; then
             reachable=$((reachable + 1))
+            # Stop after first success for speed
+            if ((reachable == 1)); then
+                echo ""
+                success "Can reach $host"
+                break
+            fi
         fi
     done
     
     if ((reachable == 0)); then
+        echo ""
         error "No network connectivity. Bootstrap requires internet access."
         echo "  Try: Check WiFi/Ethernet connection"
-    elif ((reachable < 3)); then
-        warn "Limited connectivity (${reachable}/${#hosts[@]} hosts reachable)"
-    else
+        echo "  Try: ping 1.1.1.1"
+    elif ((reachable >= 1)); then
         success "Network connectivity OK"
     fi
 }
