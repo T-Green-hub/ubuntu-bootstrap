@@ -35,19 +35,29 @@ cd ubuntu-bootstrap
 DRY_RUN=1 make run
 ```
 
-1. Run the full installation:
+1. Run the full installation (autopilot mode - fully automatic):
 
 ```bash
 make run
 ```
 
+**What is autopilot mode?** It's a fully automatic installation that:
+- Runs all 8 setup scripts in order
+- Shows progress with a visual bar and time estimate
+- Handles any issues automatically (like waiting for package locks)
+- Takes 5-15 minutes total
+- You can leave it running and come back when done
+
 This installation will:
 
-- Install essential packages
-- Configure power management for your laptop
-- Set up security and privacy features
-- Install optional developer tools (Docker, Python, Node.js, etc.)
-- Verify everything is working
+- ✅ Install essential packages (git, vim, curl, build tools)
+- ✅ Configure power management for your laptop (better battery life)
+- ✅ Set up security and privacy features (firewall, secure DNS)
+- ✅ Install developer tools (Docker, Python, Node.js, Rust, Go, VS Code)
+- ✅ Optimize your specific hardware (ThinkPad, HP, etc.)
+- ✅ Verify everything is working
+
+**Safe to run:** It won't break your system. Everything is tested and idempotent (safe to re-run).
 
 Need to skip the developer tools? Run this instead:
 

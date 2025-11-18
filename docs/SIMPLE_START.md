@@ -30,11 +30,24 @@ make run
 
 ## What Just Happened?
 
-The installer just:
-- ✅ Installed essential packages (curl, git, vim, etc.)
-- ✅ Optimized your laptop battery
-- ✅ Set up security (firewall)
-- ✅ Installed developer tools (Docker, Node.js, Python, etc.)
+The installer just completed 8 automated steps:
+
+1. ✅ **Configured APT** - Fast, reliable package downloads
+2. ✅ **Installed essentials** - git, vim, curl, wget, htop, build tools
+3. ✅ **Set up hardware** - Graphics drivers, WiFi firmware, Bluetooth
+4. ✅ **Hardened security** - Firewall, DNS privacy, secure settings
+5. ✅ **Added dev tools** - Docker, Node.js, Python, Rust, Go, VS Code
+6. ✅ **Optimized laptop** - Battery life (20-80% charging), power management
+7. ✅ **Installed optional apps** - (if you selected them)
+8. ✅ **Verified everything** - Checked that all installations work
+
+**Time taken:** Usually 5-15 minutes depending on your internet speed
+
+**What's different now?**
+- Your terminal has new commands: `docker`, `node`, `python`, `code`
+- Battery lasts longer (smart charging thresholds)
+- System is more secure (UFW firewall active)
+- Everything is ready for development or daily use
 
 ---
 
@@ -53,19 +66,65 @@ DRY_RUN=1 make run
 
 ---
 
-## Next Steps
+## What To Do Now (Post-Installation Steps)
 
-1. **Log out and log back in** (to use Docker without sudo)
+### 1. Restart Required (Important!)
 
-2. **Pick your tools:**
-   - Want coding? → Already done! ✅
-   - Want privacy? → `scripts/60_optional-features.sh protonvpn brave`
-   - Want office? → `scripts/60_optional-features.sh libreoffice`
+```bash
+sudo reboot
+```
 
-3. **Customize your setup:**
-   - Battery saver: Already optimized! ✅
-   - Dark mode: Settings → Appearance
-   - More apps: Ubuntu Software Center
+**Why?** Some changes (like WiFi drivers and Docker) need a reboot to work properly.
+
+### 2. After Reboot - Test Your New Tools
+
+Open a terminal and try these commands:
+
+```bash
+# Check Docker works
+docker --version
+docker ps
+
+# Check Node.js works
+node --version
+npm --version
+
+# Check Python works
+python --version
+
+# Open VS Code
+code
+```
+
+**All commands work?** ✅ Perfect! Everything is installed correctly.
+
+### 3. Optional - Add More Software
+
+Want privacy tools?
+
+```bash
+cd ubuntu-bootstrap
+scripts/60_optional-features.sh protonvpn brave
+```
+
+Want office software?
+
+```bash
+scripts/60_optional-features.sh libreoffice
+```
+
+Want backups?
+
+```bash
+scripts/60_optional-features.sh timeshift
+```
+
+### 4. Customize Ubuntu
+
+- **Dark mode:** Settings → Appearance → Style → Dark
+- **Power settings:** Settings → Power (already optimized for battery!)
+- **More apps:** Open "Ubuntu Software" app and browse
+- **Keyboard shortcuts:** Settings → Keyboard → View and Customize Shortcuts
 
 ---
 

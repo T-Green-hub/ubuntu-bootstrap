@@ -15,7 +15,24 @@ Set up Ubuntu 24.04 (Noble) for development and daily use with one command. Feat
 
 ## Getting Started
 
-### Quick Start (Interactive Menu)
+### 🌟 First Time User? Start Here!
+
+**Copy, paste, and press Enter - that's it!**
+
+```bash
+sudo apt update && sudo apt install -y git make && \
+git clone https://github.com/T-Green-hub/ubuntu-bootstrap.git && \
+cd ubuntu-bootstrap && \
+make run
+```
+
+☕ **Grab coffee! Installation takes 5-15 minutes.**
+
+---
+
+### Interactive Menu (Guided Setup)
+
+Prefer a menu-driven experience?
 
 ```bash
 # Install prerequisites
@@ -27,12 +44,15 @@ cd ubuntu-bootstrap
 bash scripts/interactive_menu.sh
 ```
 
-The interactive menu provides:
-- 🎯 Hardware detection (auto-detects ThinkPad T14s Gen 2!)
-- 📊 Progress indicators and time estimates
-- 🔍 Pre-flight system checks
-- 📚 Built-in documentation browser
-- ⚙️ Selective installation options
+**Perfect for beginners!** The interactive menu provides:
+- 🎯 **Auto hardware detection** (knows your ThinkPad, HP, etc.)
+- 📊 **Real-time progress** - See exactly what's happening
+- 🔍 **System checks first** - Catches problems before starting
+- 📚 **Built-in help** - Read guides without leaving the menu
+- ⚙️ **Choose what to install** - Full setup or just basics
+- 🎨 **Beautiful interface** - No confusing terminal output
+
+**What it does:** Walks you through every step with clear explanations and lets you preview changes before applying them.
 
 ### Traditional Method
 

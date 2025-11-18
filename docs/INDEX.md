@@ -4,13 +4,14 @@ Complete guide to all ubuntu-bootstrap documentation.
 
 ---
 
-## � **NEW!** Simple Guides (Perfect for Beginners)
+## 🚀 **NEW!** Simple Guides (Perfect for Beginners)
 
 **Choose your learning style:**
 
 1. **[Simple Start](SIMPLE_START.md)** ⭐⭐⭐ *EASIEST - COPY/PASTE*
    - 5-minute ultra-simple guide
-   - Copy/paste commands only
+   - Autopilot mode (fully automatic)
+   - Copy/paste ONE command and you're done
    - Perfect for absolute beginners
 
 2. **[Cheat Sheet](CHEAT_SHEET.md)** ⭐⭐⭐ *PRINTABLE REFERENCE*

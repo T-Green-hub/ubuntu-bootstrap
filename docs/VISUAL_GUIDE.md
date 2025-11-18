@@ -4,6 +4,50 @@
 
 ---
 
+## 🎯 Which Path Is Right For You?
+
+```
+                  ╔════════════════════════════════╗
+                  ║   WHICH PATH SHOULD I TAKE?    ║
+                  ╚════════════════════════════════╝
+                                  │
+                                  ▼
+                    ┌─────────────────────────┐
+                    │  Are you brand new to   │
+                    │  Ubuntu/Linux?          │
+                    └─────────────┬───────────┘
+                                  │
+                    ┌─────────────┴───────────┐
+                    │                         │
+                   YES                       NO
+                    │                         │
+                    ▼                         ▼
+          ┌───────────────────┐     ┌──────────────────┐
+          │  SIMPLE START     │     │  Want menu or    │
+          │  docs/            │     │  command line?   │
+          │  SIMPLE_START.md  │     └────────┬─────────┘
+          │                   │              │
+          │  Just copy/paste  │      ┌───────┴────────┐
+          │  ONE command!     │      │                │
+          └───────────────────┘     MENU          COMMAND
+                                     │                │
+                                     ▼                ▼
+                          ┌────────────────┐  ┌──────────────┐
+                          │ Interactive    │  │ Quick Start  │
+                          │ Menu           │  │ Guide        │
+                          │ bash scripts/  │  │ make run     │
+                          │ interactive_   │  └──────────────┘
+                          │ menu.sh        │
+                          └────────────────┘
+```
+
+**Recommendation:** 
+- **Never used Linux?** → SIMPLE_START.md (easiest!)
+- **Like visual menus?** → Interactive Menu
+- **Prefer typing commands?** → Quick Start Guide
+
+---
+
 ## 📊 Installation Flow
 
 ```

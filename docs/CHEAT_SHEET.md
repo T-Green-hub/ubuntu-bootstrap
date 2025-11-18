@@ -4,6 +4,24 @@ Quick reference for the most common commands.
 
 ---
 
+## 🌟 Brand New? Start Here
+
+**One command to install everything (autopilot):**
+
+```bash
+git clone https://github.com/T-Green-hub/ubuntu-bootstrap.git && \
+cd ubuntu-bootstrap && make run
+```
+
+**Or use the interactive menu (guided):**
+
+```bash
+cd ubuntu-bootstrap
+bash scripts/interactive_menu.sh
+```
+
+---
+
 ## 🎯 Essential Commands (Use These Most)
 
 ### Install Everything
