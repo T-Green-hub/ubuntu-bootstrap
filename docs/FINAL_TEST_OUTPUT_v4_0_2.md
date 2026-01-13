@@ -17,7 +17,7 @@ This document provides comprehensive evidence that v4.0.2 meets all audit-grade 
 
 ---
 
-## TEST 1: Repository State
+## TEST 1: Repository State (Pre-Commit)
 
 ### Command: `git status -sb`
 ```
@@ -36,6 +36,18 @@ This document provides comprehensive evidence that v4.0.2 meets all audit-grade 
 
 **Result:** ✅ PASS - 3 files changed (2 modified, 1 new)
 
+### Final State (Post-Push)
+
+After commit `677f3d1` and pushing:
+```bash
+git status -sb
+```
+```
+## main...origin/main
+```
+
+**Result:** ✅ Clean working tree, v4.0.2 tag pushed to origin
+
 ---
 
 ## TEST 2: Help and Version Output
@@ -52,7 +64,7 @@ OPTIONS:
     --dry-run           Show what would be done without making changes (NO system changes)
     --yes, -y           Skip confirmation prompts
     --output-dir <path> Output directory for logs/reports (default: $HOME/bootstrap-logs/<timestamp>)
-    --log-dir <path>    (deprecated: use --output-dir)
+    --log-dir <path>    (deprecated: use --output-dir; will be removed in v5.0.0)
     --version, -v       Show version and exit
     --help, -h          Show this help
 

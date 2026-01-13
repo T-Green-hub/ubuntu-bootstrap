@@ -46,7 +46,7 @@ parse_args() {
                 shift 2
                 ;;
             --log-dir)
-                log_warning "--log-dir is deprecated, use --output-dir instead"
+                log_warning "--log-dir is deprecated and will be removed in v5.0.0. Use --output-dir instead."
                 LOG_DIR="$2"
                 shift 2
                 ;;
@@ -88,7 +88,7 @@ OPTIONS:
     --dry-run           Show what would be done without making changes (NO system changes)
     --yes, -y           Skip confirmation prompts
     --output-dir <path> Output directory for logs/reports (default: \$HOME/bootstrap-logs/<timestamp>)
-    --log-dir <path>    (deprecated: use --output-dir)
+    --log-dir <path>    (deprecated: use --output-dir; will be removed in v5.0.0)
     --version, -v       Show version and exit
     --help, -h          Show this help
 
