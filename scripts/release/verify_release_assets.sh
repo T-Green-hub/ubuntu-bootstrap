@@ -173,6 +173,63 @@ with open('$report_file') as f:
     fi
 }
 
+# Verify final packet structure
+verify_final_packet_structure() {
+    local bundle="$1"
+
+    log_info "Checking final packet structure..."
+
+    # Get list of files in tarball
+    local file_list
+    file_list=$(tar -tzf "$bundle" 2>/dev/null)
+
+    # Check for required files
+    local required_files=(
+        "manifest.json"
+        "FINAL_CLOSEOUT.md"
+        "FINAL_CERTIFICATION.txt"
+        "payload/"
+    )
+
+    local missing_files=()
+    for file in "${required_files[@]}"; do
+        if ! echo "$file_list" | grep -q "$file"; then
+            missing_files+=("$file")
+        fi
+    done
+
+    if [[ ${#missing_files[@]} -eq 0 ]]; then
+        log_pass "Final packet structure validated (manifest, closeout, certification, payload)"
+    else
+        log_fail "Final packet missing required files: ${missing_files[*]}"
+        return 1
+    fi
+
+    # Check payload contains base and addendum references
+    if echo "$file_list" | grep -q "payload/bootstrap_ship_20260113T091324Z.tar.gz"; then
+        log_pass "Final packet payload contains base bundle reference"
+    else
+        log_fail "Final packet payload missing base bundle reference"
+        return 1
+    fi
+
+    if echo "$file_list" | grep -q "payload/bootstrap_ship_20260113T091324Z_addendum_20260113T140121Z.tar.gz"; then
+        log_pass "Final packet payload contains addendum bundle reference"
+    else
+        log_fail "Final packet payload missing addendum bundle reference"
+        return 1
+    fi
+
+    if echo "$file_list" | grep -q "payload/.*\.sha256"; then
+        log_pass "Final packet payload contains sha256 checksum files"
+    else
+        log_fail "Final packet payload missing sha256 checksum files"
+        return 1
+    fi
+
+    return 0
+}
+
 # Main verification
 main() {
     echo "======================================================"
@@ -189,6 +246,9 @@ main() {
     log_info "Verifying test results..."
     verify_base_results "$BASE_BUNDLE"
     verify_addendum_results "$ADDENDUM_BUNDLE"
+
+    echo ""
+    verify_final_packet_structure "$FINAL_BUNDLE"
 
     echo ""
     echo "======================================================"
