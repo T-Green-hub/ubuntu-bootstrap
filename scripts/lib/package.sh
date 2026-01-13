@@ -86,14 +86,14 @@ wait_for_apt_lock() {
     return 0
 }
 
-# Safe apt-get wrapper with retries
+# Safe apt-get wrapper with retries and robust error handling
 apt_safe() {
     local max_attempts=3
     local attempt=0
     local wait_time=5
 
     while ((attempt < max_attempts)); do
-        ((attempt++))
+        attempt=$((attempt + 1))
 
         # Wait for locks
         if ! wait_for_apt_lock 60; then
@@ -126,7 +126,7 @@ apt_safe() {
                 log_warning "apt-get failed (exit $exit_code), retrying (attempt $attempt/$max_attempts)..."
                 sleep "$wait_time"
             else
-                log_error "apt-get failed after $max_attempts attempts"
+                log_error "apt-get failed after $max_attempts attempts with exit code $exit_code"
                 return $exit_code
             fi
         fi
@@ -138,7 +138,7 @@ apt_safe() {
 # Update apt cache
 apt_update() {
     log_step "Updating package cache..."
-    apt_safe update -qq
+    apt_safe update
 }
 
 # Upgrade packages
