@@ -6,6 +6,13 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# Root/Sudo Check: Ensure script has sudo access
+if [[ $EUID -ne 0 ]] && ! sudo -n true 2>/dev/null; then
+    echo "ERROR: This script requires sudo access." >&2
+    echo "Please run with: sudo $0 $*" >&2
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LIB_DIR="$REPO_DIR/scripts/lib"
@@ -131,6 +138,18 @@ run_capture_shell() {
     return $rc
 }
 
+# Enhanced Error Logging Function
+log_error() {
+    local name="$1" rc="$2"
+    local error_log="${LOG_DIR:-/tmp}/errors.log"
+    {
+        echo "[$(date -Iseconds)] ERROR: $name failed (rc=$rc)"
+        echo "  PWD: $(pwd)"
+        echo "  ENV: $(env | grep -E '^(DEBIAN|APT|HOME|USER|PATH)=' | head -10)"
+        echo "  ---"
+    } >> "$error_log"
+}
+
 run_must() {
     local name="$1"
     shift
@@ -138,12 +157,36 @@ run_must() {
         return 0
     else
         local rc=$?
+        log_error "$name" "$rc"  # Enhanced error logging
         FAIL_FLAG=1
         FAIL_REASON="$name failed (rc=$rc)"
         report_add "FAIL" "$FAIL_REASON"
         track_action "$name" "failed" "Exit code: $rc"
         exit "$rc"
     fi
+}
+
+# Selective Retry Mechanism for Network Commands
+run_must_with_retry() {
+    local name="$1"
+    local max_attempts=3
+    local attempt=1
+
+    while (( attempt <= max_attempts )); do
+        if run_must "$name" "${@:2}"; then
+            return 0
+        fi
+
+        if (( attempt < max_attempts )); then
+            log_warning "Retry $attempt/$max_attempts for $name (waiting 2s...)"
+            sleep 2
+        fi
+        ((attempt++))
+    done
+
+    # If we reach here, all retries exhausted
+    log_error "$name" 1
+    return 1
 }
 
 parse_args() {
@@ -366,7 +409,7 @@ apply_group1_performance() {
     if dpkg -s amd64-microcode >/dev/null 2>&1; then
         track_action "install_microcode" "already_installed"
     else
-        run_must "apt_update_microcode" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must_with_retry "apt_update_microcode" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
         run_must "apt_install_microcode" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y amd64-microcode
         INSTALLED_PACKAGES+=("amd64-microcode")
         track_action "install_microcode" "installed"
@@ -431,7 +474,7 @@ apply_group2_security() {
     if dpkg -s unattended-upgrades >/dev/null 2>&1; then
         track_action "install_unattended" "already_installed"
     else
-        run_must "apt_update_unattended" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must_with_retry "apt_update_unattended" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
         run_must "apt_install_unattended" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y unattended-upgrades
         INSTALLED_PACKAGES+=("unattended-upgrades")
         track_action "install_unattended" "installed"
@@ -473,7 +516,7 @@ apply_group3_devtools() {
     if (( ${#to_install[@]} == 0 )); then
         track_action "install_devtools" "already_installed"
     else
-        run_must "apt_update_devtools" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must_with_retry "apt_update_devtools" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
         run_must "apt_install_devtools" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y "${to_install[@]}"
         for pkg in "${to_install[@]}"; do
             INSTALLED_PACKAGES+=("$pkg")
