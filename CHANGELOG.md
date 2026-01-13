@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.7] - 2026-01-13
+
 ### Added
-- CHANGELOG.md to track project evolution
-- GitHub Actions workflow for full test suite and smoke tests
-- Dependabot config for GitHub Actions updates
-- SECURITY.md and CONTRIBUTING.md
+- GitHub Actions workflow for full test suite and smoke tests (.github/workflows/test.yml)
+- Dependabot config for GitHub Actions updates (.github/dependabot.yml)
+- SECURITY.md with vulnerability reporting policy
+- CONTRIBUTING.md with development workflow guidelines
+
+### Fixed
+- Removed stray 'done' in Makefile test-quick target causing syntax error
 
 ## [4.0.6] - 2026-01-13
 
@@ -48,6 +53,7 @@ See git history for detailed changes in versions prior to 4.0.5.
 
 ---
 
-[Unreleased]: https://github.com/T-Green-hub/ubuntu-bootstrap/compare/v4.0.6...HEAD
+[Unreleased]: https://github.com/T-Green-hub/ubuntu-bootstrap/compare/v4.0.7...HEAD
+[4.0.7]: https://github.com/T-Green-hub/ubuntu-bootstrap/compare/v4.0.6...v4.0.7
 [4.0.6]: https://github.com/T-Green-hub/ubuntu-bootstrap/releases/tag/v4.0.6
 [4.0.5]: https://github.com/T-Green-hub/ubuntu-bootstrap/releases/tag/v4.0.5
