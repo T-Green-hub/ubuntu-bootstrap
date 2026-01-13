@@ -652,10 +652,3 @@ main() {
 }
 
 main "$@"
-        exit 0
-    else
-        exit 0
-    fi
-}
-
-main "$@"
