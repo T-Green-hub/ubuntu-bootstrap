@@ -1,0 +1,1 @@
+UBUNTU-BOOTSTRAP v4.0.6 CLOSEOUT: READY. Evidence: proof/bundles/bootstrap_ship_20260113T091324Z.tar.gz (sha256 e0327751dd4bbfaa654d6698236aa3ee0d3ed90f343dbfc87c2a6fae74da60ee).
