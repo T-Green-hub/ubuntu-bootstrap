@@ -6,6 +6,8 @@ ORG="T-Green-hub"
 NAME="ubuntu-bootstrap"
 REMOTE_SSH="git@github.com:${ORG}/${NAME}.git"
 
+source "$REPO_DIR/scripts/lib/privileged.sh"
+
 cd "$REPO_DIR"
 
 # Ensure GitHub CLI exists
@@ -14,12 +16,12 @@ if ! command -v gh >/dev/null 2>&1; then
   type -p curl >/dev/null || { echo "[X] curl required"; exit 1; }
   curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
     https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-    sudo tee /usr/share/keyrings/githubcli-archive-keyring.gpg >/dev/null
-  sudo chmod 0644 /usr/share/keyrings/githubcli-archive-keyring.gpg
+    run_privileged tee /usr/share/keyrings/githubcli-archive-keyring.gpg >/dev/null
+  run_privileged chmod 0644 /usr/share/keyrings/githubcli-archive-keyring.gpg
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-  sudo apt-get update -y
-  sudo apt-get install -y gh
+    | run_privileged tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+  run_privileged env DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none NEEDRESTART_MODE=l apt-get update -y
+  run_privileged env DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none NEEDRESTART_MODE=l apt-get install -y gh
 fi
 
 # Init git if needed

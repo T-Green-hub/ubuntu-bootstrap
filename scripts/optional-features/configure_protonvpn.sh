@@ -8,6 +8,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/privileged.sh"
+
 log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 
 show_help() {
@@ -55,7 +58,7 @@ EOF
 
 verify_protonvpn_installed() {
     log "=== Verifying ProtonVPN Installation ==="
-    
+
     if ! command -v protonvpn-app >/dev/null 2>&1; then
         log "✗ ProtonVPN is not installed"
         log ""
@@ -65,53 +68,53 @@ verify_protonvpn_installed() {
         log ""
         return 1
     fi
-    
+
     log "✓ ProtonVPN GUI found"
-    
+
     if ! dpkg -s proton-vpn-gnome-desktop >/dev/null 2>&1; then
         log "⚠ Package proton-vpn-gnome-desktop not found"
         log "  This may indicate an incomplete installation"
         return 1
     fi
-    
+
     log "✓ ProtonVPN package installed"
-    
+
     return 0
 }
 
 enable_daemon_service() {
     log ""
     log "=== Configuring ProtonVPN Daemon ==="
-    
+
     local service="me.proton.vpn.split_tunneling.service"
-    
+
     # Check if service exists
     if ! systemctl list-unit-files | grep -q "$service"; then
         log "⚠ ProtonVPN service not found"
         log "  The service will be created on first GUI launch"
         return 0
     fi
-    
+
     # Enable service
     if systemctl is-enabled --quiet "$service" 2>/dev/null; then
         log "✓ ProtonVPN daemon already enabled"
     else
         log "→ Enabling ProtonVPN daemon..."
-        sudo systemctl enable "$service" 2>/dev/null || {
+        run_privileged systemctl enable "$service" 2>/dev/null || {
             log "⚠ Could not enable service (may not be created yet)"
             log "  This is normal before first launch"
             return 0
         }
         log "✓ ProtonVPN daemon enabled"
     fi
-    
+
     # Check if running
     if systemctl is-active --quiet "$service" 2>/dev/null; then
         log "✓ ProtonVPN daemon is running"
     else
         log "→ ProtonVPN daemon not running (will start on first connection)"
     fi
-    
+
     return 0
 }
 
@@ -163,7 +166,7 @@ show_gui_setup_instructions() {
 test_configuration() {
     log "=== Testing Configuration ==="
     log ""
-    
+
     # Check if user is logged in (config file exists)
     local config_dir="$HOME/.config/protonvpn"
     if [[ -d "$config_dir" ]]; then
@@ -173,7 +176,7 @@ test_configuration() {
         log "  Launch protonvpn-app and log in first"
         return 0
     fi
-    
+
     # Check for session file (indicates logged in)
     if [[ -f "$config_dir/app_config.json" ]] || [[ -f "$config_dir/settings.json" ]]; then
         log "✓ ProtonVPN appears to be configured"
@@ -181,7 +184,7 @@ test_configuration() {
         log "⚠ No active session found"
         log "  Log in through the GUI to complete setup"
     fi
-    
+
     log ""
     log "To verify VPN is working after connection:"
     log "  curl https://ipinfo.io/ip"
@@ -192,17 +195,17 @@ test_configuration() {
 add_to_autostart() {
     log "=== Configuring Autostart ==="
     log ""
-    
+
     local autostart_dir="$HOME/.config/autostart"
     local desktop_file="$autostart_dir/protonvpn-app.desktop"
-    
+
     mkdir -p "$autostart_dir"
-    
+
     if [[ -f "$desktop_file" ]]; then
         log "✓ ProtonVPN already in autostart"
         return 0
     fi
-    
+
     # Create autostart entry
     cat > "$desktop_file" <<'EOF'
 [Desktop Entry]
@@ -215,7 +218,7 @@ Terminal=false
 Categories=Network;
 X-GNOME-Autostart-enabled=true
 EOF
-    
+
     log "✓ Added ProtonVPN to autostart (will launch minimized)"
     log "  Location: $desktop_file"
     log ""
@@ -229,29 +232,29 @@ main() {
         show_help
         exit 0
     fi
-    
+
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log "ProtonVPN Configuration Helper"
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log ""
-    
+
     # Verify installation
     if ! verify_protonvpn_installed; then
         exit 1
     fi
-    
+
     # Enable daemon
     enable_daemon_service
-    
+
     # Add to autostart
     add_to_autostart
-    
+
     # Show manual setup instructions
     show_gui_setup_instructions
-    
+
     # Test current state
     test_configuration
-    
+
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log "✓ Configuration Helper Complete"
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

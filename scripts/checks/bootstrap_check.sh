@@ -14,6 +14,7 @@ LIB_DIR="$SCRIPT_DIR/lib"
 # Source library functions
 source "$LIB_DIR/version.sh"
 source "$LIB_DIR/logging.sh"
+source "$LIB_DIR/privileged.sh"
 source "$LIB_DIR/detection.sh"
 source "$LIB_DIR/report.sh"
 
@@ -218,7 +219,12 @@ check_tpm() {
 
         if command -v tpm2_getcap >/dev/null 2>&1; then
             log_info "TPM version:"
-            sudo tpm2_getcap properties-fixed 2>/dev/null | grep -E "TPM2_PT_FAMILY|TPM2_PT_VENDOR" || true
+            if privileged_allowed; then
+                run_privileged tpm2_getcap properties-fixed 2>/dev/null | grep -E "TPM2_PT_FAMILY|TPM2_PT_VENDOR" || true
+            else
+                log_info "TPM details require sudo (skipped)"
+                report_add "PASS" "TPM check requires sudo (skipped)"
+            fi
         fi
 
         report_add "PASS" "TPM present"

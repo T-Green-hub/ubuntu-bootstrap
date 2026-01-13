@@ -1,3 +1,5 @@
+# local audit artifacts
+/audit_bundle/
 # Base Linux/editor ignores
 *~
 *.swp

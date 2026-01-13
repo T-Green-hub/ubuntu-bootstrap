@@ -2,10 +2,24 @@
 # Ubuntu Bootstrap - Self-Test Harness
 # Validates scripts, runs smoke tests, verifies artifacts
 
+set -euo pipefail
+IFS=$'\n\t'
+
 # Timeouts and diagnostics
 TIMEOUT=30  # seconds per test
 MAX_ATTEMPTS=3
 HANG_CHECK_INTERVAL=5
+CI_MODE=0
+
+# Parse arguments
+for arg in "$@"; do
+    case "$arg" in
+        --ci)
+            CI_MODE=1
+            shift
+            ;;
+    esac
+done
 
 # Determine directories
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,7 +30,15 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 run_with_timeout() {
     local timeout=$1
     shift
-    timeout "$timeout" "$@" || true  # Don't fail the whole script if timeout exits with error
+
+    local rc=0
+    if timeout "$timeout" "$@"; then
+        rc=0
+    else
+        rc=$?
+    fi
+
+    return "$rc"
 }
 
 # Colors
@@ -33,17 +55,17 @@ TESTS_WARNED=0
 # Test result
 test_pass() {
     echo -e "${GREEN}✓ PASS${NC}: $1"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 test_fail() {
     echo -e "${RED}✗ FAIL${NC}: $1"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 test_warn() {
     echo -e "${YELLOW}⚠ WARN${NC}: $1"
-    ((TESTS_WARNED++))
+    TESTS_WARNED=$((TESTS_WARNED + 1))
 }
 
 # Test: Syntax check
@@ -120,10 +142,15 @@ test_dry_run_profiles() {
 
     local profiles=("minimal" "dev" "secure")
     for profile in "${profiles[@]}"; do
-        local output_dir="/tmp/bs_${profile}_v405_$$"
+        local output_dir="/tmp/bs_${profile}_v406_$$"
         echo "Testing profile: $profile (output: $output_dir)"
 
-        if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile "$profile" --dry-run --yes --output-dir "$output_dir" >/dev/null 2>&1; then
+        local bootstrap_args=(--profile "$profile" --dry-run --yes --output-dir "$output_dir")
+        if (( CI_MODE == 1 )); then
+            bootstrap_args+=(--ci)
+        fi
+
+        if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" "${bootstrap_args[@]}" >/dev/null 2>&1; then
             # Verify artifacts exist
             if [[ -f "$output_dir/report.json" ]] && [[ -f "$output_dir/report.txt" ]] && [[ -f "$output_dir/system-info.txt" ]]; then
                 test_pass "Profile $profile: artifacts created"
@@ -147,7 +174,7 @@ test_health_checker() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    local output_dir="/tmp/ck_test_v405_$$"
+    local output_dir="/tmp/ck_test_v406_$$"
     echo "Running health checker (output: $output_dir)"
 
     if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --output-dir "$output_dir" >/dev/null 2>&1; then
@@ -202,7 +229,7 @@ test_doctor_mode() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    local output_dir="/tmp/doctor_test_v405_$$"
+    local output_dir="/tmp/doctor_test_v406_$$"
 
     # Bootstrap doctor
     if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --doctor --output-dir "$output_dir" >/dev/null 2>&1; then
@@ -213,7 +240,7 @@ test_doctor_mode() {
     fi
 
     # Checker doctor
-    output_dir="/tmp/checker_doctor_v405_$$"
+    output_dir="/tmp/checker_doctor_v406_$$"
     if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --doctor --output-dir "$output_dir" >/dev/null 2>&1; then
         test_pass "Checker doctor mode executed"
         rm -rf "$output_dir"
@@ -231,7 +258,7 @@ test_debug_trace() {
     echo ""
 
     # Debug mode
-    local output_dir="/tmp/debug_test_v405_$$"
+    local output_dir="/tmp/debug_test_v406_$$"
     if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --dry-run --yes --debug --output-dir "$output_dir" >/dev/null 2>&1; then
         test_pass "Debug mode executed"
         rm -rf "$output_dir"
@@ -240,7 +267,7 @@ test_debug_trace() {
     fi
 
     # Trace mode
-    output_dir="/tmp/trace_test_v405_$$"
+    output_dir="/tmp/trace_test_v406_$$"
     if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --dry-run --yes --trace --output-dir "$output_dir" >/dev/null 2>&1; then
         if [[ -f "$output_dir/trace.log" ]]; then
             test_pass "Trace mode: trace.log created"
@@ -261,7 +288,7 @@ test_bundle() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    local output_dir="/tmp/bundle_test_v405_$$"
+    local output_dir="/tmp/bundle_test_v406_$$"
     if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --bundle --output-dir "$output_dir" >/dev/null 2>&1; then
         if [[ -f "${output_dir}.tar.gz" ]]; then
             test_pass "Bundle: tar.gz created"
@@ -306,7 +333,7 @@ print_summary() {
 main() {
     echo ""
     echo "═══════════════════════════════════════════════════════════"
-    echo "  Ubuntu Bootstrap - Self-Test Harness v4.0.5"
+    echo "  Ubuntu Bootstrap - Self-Test Harness v4.0.6"
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 

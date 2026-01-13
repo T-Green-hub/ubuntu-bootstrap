@@ -2,6 +2,13 @@
 # Hardware and system detection utilities for ubuntu-bootstrap
 # Non-destructive detection functions
 
+# Privileged wrapper (for safe dry-run/CI behavior)
+if ! declare -F run_privileged >/dev/null 2>&1; then
+    DETECTION_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck source=/dev/null
+    source "$DETECTION_LIB_DIR/privileged.sh" 2>/dev/null || true
+fi
+
 # Detect CPU vendor (AuthenticAMD, GenuineIntel, or Unknown)
 detect_cpu_vendor() {
     if [[ -r /proc/cpuinfo ]]; then
@@ -53,21 +60,21 @@ has_intel_gpu() {
 # Detect laptop (via chassis type or battery presence)
 is_laptop() {
     # Check dmidecode chassis type
-    if command -v dmidecode >/dev/null 2>&1 && [[ $EUID -eq 0 || -n "$(command -v sudo 2>/dev/null)" ]]; then
+    if command -v dmidecode >/dev/null 2>&1 && privileged_allowed; then
         local chassis
-        chassis=$(sudo dmidecode -s chassis-type 2>/dev/null || true)
+        chassis=$(run_privileged dmidecode -s chassis-type 2>/dev/null || true)
         case "$chassis" in
             "Notebook"|"Laptop"|"Portable"|"Sub Notebook")
                 return 0
                 ;;
         esac
     fi
-    
+
     # Fallback: check for battery
     if [[ -d /sys/class/power_supply ]]; then
         ls /sys/class/power_supply/ | grep -qi "bat" && return 0
     fi
-    
+
     return 1
 }
 
@@ -75,7 +82,11 @@ is_laptop() {
 detect_manufacturer() {
     if command -v dmidecode >/dev/null 2>&1; then
         local manuf
-        manuf=$(sudo dmidecode -s system-manufacturer 2>/dev/null || echo "Unknown")
+        if privileged_allowed; then
+            manuf=$(run_privileged dmidecode -s system-manufacturer 2>/dev/null || echo "Unknown")
+        else
+            manuf="Unknown"
+        fi
         echo "$manuf"
     else
         echo "Unknown"
@@ -86,7 +97,11 @@ detect_manufacturer() {
 detect_product_name() {
     if command -v dmidecode >/dev/null 2>&1; then
         local prod
-        prod=$(sudo dmidecode -s system-product-name 2>/dev/null || echo "Unknown")
+        if privileged_allowed; then
+            prod=$(run_privileged dmidecode -s system-product-name 2>/dev/null || echo "Unknown")
+        else
+            prod="Unknown"
+        fi
         echo "$prod"
     else
         echo "Unknown"
@@ -150,11 +165,11 @@ is_virtual_machine() {
     if command -v systemd-detect-virt >/dev/null 2>&1; then
         systemd-detect-virt -q && return 0
     fi
-    
+
     # Fallback checks
     if grep -qi "hypervisor" /proc/cpuinfo 2>/dev/null; then
         return 0
     fi
-    
+
     return 1
 }

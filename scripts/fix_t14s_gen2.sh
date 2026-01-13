@@ -20,7 +20,7 @@ echo ""
 # 2. Create WiFi AX201 power management config
 echo "2. Configuring WiFi 6 AX201 power management..."
 if [ ! -f /etc/modprobe.d/iwlwifi-ax201.conf ]; then
-    sudo tee /etc/modprobe.d/iwlwifi-ax201.conf > /dev/null << 'EOF'
+    run_privileged tee /etc/modprobe.d/iwlwifi-ax201.conf > /dev/null << 'EOF'
 # Intel AX201 WiFi 6 optimization
 # Disable aggressive power management for better stability
 options iwlwifi power_save=0
@@ -36,13 +36,13 @@ echo ""
 # 3. Create TrackPoint udev rule
 echo "3. Configuring TrackPoint..."
 if [ ! -f /etc/udev/rules.d/10-trackpoint.rules ]; then
-    sudo tee /etc/udev/rules.d/10-trackpoint.rules > /dev/null << 'EOF'
+    run_privileged tee /etc/udev/rules.d/10-trackpoint.rules > /dev/null << 'EOF'
 # ThinkPad TrackPoint configuration
 ACTION=="add", SUBSYSTEM=="input", ATTR{name}=="TPPS/2 IBM TrackPoint", \
   ATTR{device/sensitivity}="200", \
   ATTR{device/speed}="120"
 EOF
-    sudo udevadm control --reload-rules
+    run_privileged udevadm control --reload-rules
     echo "   ✓ TrackPoint udev rule created"
     echo "   ℹ Current sensitivity: $(cat /sys/devices/platform/i8042/serio1/sensitivity 2>/dev/null || echo 'unknown')"
     echo "   ℹ Will apply on next boot or reconnect"

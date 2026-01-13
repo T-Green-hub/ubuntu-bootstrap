@@ -9,6 +9,7 @@ IFS=$'\n\t'
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIR="$REPO_DIR/scripts"
+source "$SCRIPTS_DIR/lib/privileged.sh"
 DRY_RUN="${DRY_RUN:-0}"  # Support environment variable
 declare -a SKIP_SCRIPTS=()
 
@@ -38,7 +39,7 @@ progress() {
   local bar_width=50
   local filled=$(( (pct * bar_width) / 100 ))
   local empty=$((bar_width - filled))
-  
+
   # Calculate ETA
   local elapsed=$(($(date +%s) - START_TIME))
   local eta="--:--"
@@ -49,7 +50,7 @@ progress() {
     local eta_sec=$((remaining % 60))
     eta=$(printf "%02d:%02d" "$eta_min" "$eta_sec")
   fi
-  
+
   # Use green for filled portion
   printf "\r\033[0;32m["
   printf "%${filled}s" | tr ' ' '█'
@@ -57,7 +58,7 @@ progress() {
   printf "%${empty}s" | tr ' ' '░'
   printf "] \033[1m%3d%%\033[0m | Step \033[1;36m%d/%d\033[0m | ETA: \033[1;33m%s\033[0m | %s" \
     "$pct" "$current" "$total" "$eta" "$desc"
-  
+
   # Clear to end of line
   printf "\033[K"
 }
@@ -133,9 +134,9 @@ wait_for_dpkg_lock() {
   while true; do
     local busy=0
     if (( has_fuser )); then
-      if sudo -n fuser "$lock_frontend" "$lock_db" >/dev/null 2>&1; then busy=1; fi
+      if fuser "$lock_frontend" "$lock_db" >/dev/null 2>&1; then busy=1; fi
     elif (( has_lsof )); then
-      if sudo -n lsof "$lock_frontend" "$lock_db" >/dev/null 2>&1; then busy=1; fi
+      if lsof "$lock_frontend" "$lock_db" >/dev/null 2>&1; then busy=1; fi
     else
       if pgrep -x apt-get >/dev/null 2>&1 || pgrep -x apt >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -x unattended-upgrade >/dev/null 2>&1; then busy=1; fi
     fi
@@ -162,7 +163,7 @@ setup_apt_guard() {
       if [[ "$DRY_RUN" -eq 1 ]]; then
         log "  [DRY RUN] Would stop $u"
       else
-        sudo systemctl stop "$u" >/dev/null 2>&1 || true
+        run_privileged systemctl stop "$u" >/dev/null 2>&1 || true
       fi
     fi
   done
@@ -183,7 +184,7 @@ restore_apt_guard() {
       if [[ "$DRY_RUN" -eq 1 ]]; then
         log "  [DRY RUN] Would start $u"
       else
-        sudo systemctl start "$u" >/dev/null 2>&1 || true
+        run_privileged systemctl start "$u" >/dev/null 2>&1 || true
       fi
     fi
   done
@@ -314,7 +315,7 @@ for i in "${!scripts[@]}"; do
     progress "$step" "$total" "$script_name"
     echo ""  # New line after progress bar
   fi
-  
+
   log "[$step/$total] Running $script_name…"
   # Best-effort wait to avoid apt/dpkg lock contention between scripts
   wait_for_dpkg_lock 180

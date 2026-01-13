@@ -2,6 +2,14 @@
 # Common utilities for ubuntu-bootstrap
 # Shared functions used across multiple modules
 
+SCRIPT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Privileged wrapper (centralized sudo gating)
+if ! declare -F run_privileged >/dev/null 2>&1; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_LIB_DIR/privileged.sh"
+fi
+
 # Logging function with timestamp
 log() {
     printf '[%s] %s\n' "$(date -Iseconds)" "$*"
@@ -10,7 +18,11 @@ log() {
 # Returns "sudo" if not running as root, empty string otherwise
 need_sudo() {
     if [[ $EUID -ne 0 ]]; then
-        echo sudo
+        if declare -F run_privileged >/dev/null 2>&1; then
+            echo run_privileged
+        else
+            echo sudo
+        fi
     fi
 }
 
@@ -19,10 +31,15 @@ apt_safe() {
     local max_attempts=6
     local attempt=0
     local wait_time=5
-    
+
+    if [[ "${DRY_RUN:-0}" -eq 1 ]] || ! privileged_allowed; then
+        log "[DRY RUN/CI] Skipping apt operation: apt-get $*"
+        return 0
+    fi
+
     while ((attempt < max_attempts)); do
         ((attempt++))
-        
+
         # Check for dpkg/apt locks
         if $(need_sudo) fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
            $(need_sudo) fuser /var/lib/apt/lists/lock >/dev/null 2>&1; then
@@ -35,9 +52,19 @@ apt_safe() {
                 return 1
             fi
         fi
-        
-        # Execute apt command
-        if $(need_sudo) apt-get "$@"; then
+
+        # Execute apt command (noninteractive, no prompts)
+        local dpkg_opts=(
+            -o Dpkg::Options::=--force-confdef
+            -o Dpkg::Options::=--force-confold
+            -o Dpkg::Use-Pty=0
+        )
+
+        if run_privileged env \
+            DEBIAN_FRONTEND=noninteractive \
+            APT_LISTCHANGES_FRONTEND=none \
+            NEEDRESTART_MODE=l \
+            apt-get "${dpkg_opts[@]}" "$@"; then
             return 0
         else
             local exit_code=$?
@@ -50,7 +77,7 @@ apt_safe() {
             fi
         fi
     done
-    
+
     return 1
 }
 
@@ -58,7 +85,7 @@ apt_safe() {
 backup_shell_file() {
     local file="$1"
     local backup_dir="$2"
-    
+
     if [[ -f "$file" ]]; then
         local filename
         filename=$(basename "$file")
@@ -76,18 +103,18 @@ remove_lines_from_file() {
     local file="$1"
     local pattern="$2"
     local backup_suffix="bak-$(date +%Y%m%d-%H%M%S)"
-    
+
     if [[ ! -f "$file" ]]; then
         log "[CLEANUP] File not found: $file (skipping)"
         return 0
     fi
-    
+
     # Create backup
     cp "$file" "${file}.${backup_suffix}"
-    
+
     # Remove lines matching pattern (using | as delimiter to avoid issues with /)
     sed -i "\|${pattern}|d" "$file"
-    
+
     log "[CLEANUP] Removed pattern from $file (backup: ${file}.${backup_suffix})"
     return 0
 }
@@ -96,16 +123,16 @@ remove_lines_from_file() {
 verify_pattern_removed() {
     local file="$1"
     local pattern="$2"
-    
+
     if [[ ! -f "$file" ]]; then
         return 0  # File doesn't exist, pattern can't be present
     fi
-    
+
     if grep -qF "$pattern" "$file" 2>/dev/null; then
         log "[VERIFY] WARNING: Pattern still found in $file"
         return 1
     fi
-    
+
     log "[VERIFY] Pattern successfully removed from $file"
     return 0
 }
@@ -129,7 +156,7 @@ get_timestamp() {
 create_backup_dir() {
     local module="$1"
     local backup_dir="${2:-$HOME/.local/share/ubuntu-bootstrap/backups/${module}-$(get_timestamp)}"
-    
+
     mkdir -p "$backup_dir"
     echo "$backup_dir"
 }
@@ -138,31 +165,31 @@ create_backup_dir() {
 confirm_action() {
     local message="$1"
     local default="${2:-N}"  # Y or N
-    
+
     # Skip in dry-run mode
     if is_dry_run; then
         return 0
     fi
-    
+
     # Skip in force mode
     if is_force_mode; then
         return 0
     fi
-    
+
     # Show message and prompt
     echo ""
     echo "$message"
-    
+
     local prompt
     if [[ "$default" == "Y" ]]; then
         prompt="[Y/n]"
     else
         prompt="[y/N]"
     fi
-    
+
     read -p "Continue? $prompt " -n 1 -r
     echo ""
-    
+
     if [[ "$default" == "Y" ]]; then
         [[ $REPLY =~ ^[Nn]$ ]] && return 1
         return 0

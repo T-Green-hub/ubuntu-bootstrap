@@ -8,10 +8,20 @@ if ! declare -F log_info >/dev/null 2>&1; then
     source "$SCRIPT_LIB_DIR/logging.sh"
 fi
 
+# Source privileged wrapper
+if ! declare -F run_privileged >/dev/null 2>&1; then
+    SCRIPT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
+    source "$SCRIPT_LIB_DIR/privileged.sh"
+fi
+
 # Returns "sudo" if not running as root, empty string otherwise
 need_sudo() {
     if [[ $EUID -ne 0 ]]; then
-        echo "sudo"
+        if declare -F run_privileged >/dev/null 2>&1; then
+            echo "run_privileged"
+        else
+            echo "sudo"
+        fi
     fi
 }
 
@@ -30,44 +40,49 @@ wait_for_apt_lock() {
         "/var/lib/dpkg/lock"
         "/var/lib/apt/lists/lock"
     )
-    
+
+    # In dry-run/CI-forbid modes we will not run apt anyway.
+    if [[ "${DRY_RUN:-0}" -eq 1 ]] || ! privileged_allowed; then
+        return 0
+    fi
+
     while true; do
         local busy=0
-        
+
         # Check if any lock file is in use
         for lock_file in "${lock_files[@]}"; do
             if [[ -f "$lock_file" ]]; then
                 if command -v fuser >/dev/null 2>&1; then
-                    if $(need_sudo) fuser "$lock_file" >/dev/null 2>&1; then
+                    if run_privileged fuser "$lock_file" >/dev/null 2>&1; then
                         busy=1
                         break
                     fi
                 fi
             fi
         done
-        
+
         # Check for running package managers
         if pgrep -x "apt-get|apt|dpkg|unattended-upgr" >/dev/null 2>&1; then
             busy=1
         fi
-        
+
         if (( busy == 0 )); then
             break
         fi
-        
+
         if (( waited == 0 )); then
             log_info "Waiting for apt/dpkg locks to be released..."
         fi
-        
+
         sleep 2
         waited=$((waited + 2))
-        
+
         if (( waited >= timeout )); then
             log_warning "Timeout waiting for apt locks after ${timeout}s"
             return 1
         fi
     done
-    
+
     return 0
 }
 
@@ -76,10 +91,10 @@ apt_safe() {
     local max_attempts=3
     local attempt=0
     local wait_time=5
-    
+
     while ((attempt < max_attempts)); do
         ((attempt++))
-        
+
         # Wait for locks
         if ! wait_for_apt_lock 60; then
             if ((attempt < max_attempts)); then
@@ -91,9 +106,19 @@ apt_safe() {
                 return 1
             fi
         fi
-        
-        # Execute apt command
-        if $(need_sudo) apt-get "$@"; then
+
+        # Execute apt command (noninteractive, no prompts)
+        local dpkg_opts=(
+            -o Dpkg::Options::=--force-confdef
+            -o Dpkg::Options::=--force-confold
+            -o Dpkg::Use-Pty=0
+        )
+
+        if run_privileged env \
+            DEBIAN_FRONTEND=noninteractive \
+            APT_LISTCHANGES_FRONTEND=none \
+            NEEDRESTART_MODE=l \
+            apt-get "${dpkg_opts[@]}" "$@"; then
             return 0
         else
             local exit_code=$?
@@ -106,7 +131,7 @@ apt_safe() {
             fi
         fi
     done
-    
+
     return 1
 }
 
@@ -126,19 +151,19 @@ apt_upgrade() {
 apt_install() {
     local packages=("$@")
     local to_install=()
-    
+
     # Filter packages that aren't already installed
     for pkg in "${packages[@]}"; do
         if ! is_package_installed "$pkg"; then
             to_install+=("$pkg")
         fi
     done
-    
+
     if (( ${#to_install[@]} == 0 )); then
         log_info "All packages already installed: ${packages[*]}"
         return 0
     fi
-    
+
     log_info "Installing packages: ${to_install[*]}"
     apt_safe install -y "${to_install[@]}"
 }

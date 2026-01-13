@@ -14,6 +14,7 @@ LIB_DIR="$SCRIPT_DIR/lib"
 # Source library functions
 source "$LIB_DIR/version.sh"
 source "$LIB_DIR/logging.sh"
+source "$LIB_DIR/privileged.sh"
 source "$LIB_DIR/detection.sh"
 source "$LIB_DIR/package.sh"
 source "$LIB_DIR/report.sh"
@@ -21,6 +22,7 @@ source "$LIB_DIR/report.sh"
 # Default configuration
 PROFILE="${PROFILE:-minimal}"
 DRY_RUN="${DRY_RUN:-0}"
+CI_MODE="${CI_MODE:-0}"
 AUTO_YES="${AUTO_YES:-0}"
 INTERACTIVE="${INTERACTIVE:-0}"
 PRINT_PLAN="${PRINT_PLAN:-0}"
@@ -32,6 +34,11 @@ BUNDLE="${BUNDLE:-0}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="${LOG_DIR:-$HOME/bootstrap-logs/$TIMESTAMP}"
 
+# Auto-detect CI environment
+if [[ -n "${CI:-}" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]] || [[ -n "${GITLAB_CI:-}" ]]; then
+    CI_MODE=1
+fi
+
 # Parse command-line arguments
 parse_args() {
     while [[ $# -gt 0 ]]; do
@@ -42,6 +49,12 @@ parse_args() {
                 ;;
             --dry-run)
                 DRY_RUN=1
+                shift
+                ;;
+            --ci)
+                CI_MODE=1
+                DRY_RUN=1
+                AUTO_YES=1
                 shift
                 ;;
             --yes|-y)
@@ -126,6 +139,7 @@ USAGE:
 OPTIONS:
     --profile <name>    Profile to use: minimal, dev, secure (default: minimal)
     --dry-run           Show what would be done without making changes (NO system changes)
+    --ci                CI mode: implies --dry-run --yes, forbids sudo unless ALLOW_SUDO=1
     --yes, -y           Skip confirmation prompts
     --interactive       Interactive menu for profile selection
     --print-plan        Show execution plan without running (implies --dry-run)
@@ -160,6 +174,11 @@ SAFETY:
     - Creates detailed logs in log directory
 
 EOF
+}
+
+# Back-compat wrapper: funnel all privileged ops through run_privileged
+run_sudo() {
+    run_privileged "$@"
 }
 
 # Initialize logging
@@ -268,7 +287,11 @@ snapshot_system_info() {
             echo "Present: Yes"
             if command -v tpm2_getcap >/dev/null 2>&1; then
                 echo "Version:"
-                sudo tpm2_getcap properties-fixed 2>/dev/null | grep -E "TPM2_PT_FAMILY|TPM2_PT_VENDOR" || true
+                if (( DRY_RUN == 1 )) || ! privileged_allowed; then
+                    echo "(requires sudo; skipped)"
+                else
+                    run_privileged tpm2_getcap properties-fixed 2>/dev/null | grep -E "TPM2_PT_FAMILY|TPM2_PT_VENDOR" || true
+                fi
             fi
         else
             echo "Present: No"
@@ -312,7 +335,7 @@ apt_hygiene() {
         log_info "Unattended-upgrades already configured"
     else
         apt_install unattended-upgrades
-        sudo dpkg-reconfigure -plow unattended-upgrades
+        run_sudo dpkg-reconfigure -plow unattended-upgrades
     fi
 
     log_success "APT hygiene complete"
@@ -332,14 +355,14 @@ firmware_updates() {
     apt_install fwupd
 
     log_info "Refreshing firmware metadata..."
-    if sudo fwupdmgr refresh --force 2>/dev/null; then
+    if run_sudo fwupdmgr refresh --force 2>/dev/null; then
         log_success "Firmware metadata refreshed"
     else
         log_warning "Firmware refresh failed (may not be supported)"
     fi
 
     log_info "Checking for firmware updates..."
-    if sudo fwupdmgr get-updates 2>/dev/null; then
+    if run_sudo fwupdmgr get-updates 2>/dev/null; then
         log_warning "Firmware updates available - review and apply manually with: sudo fwupdmgr update"
         report_add "WARN" "Firmware updates available (manual review recommended)"
     else
@@ -406,7 +429,7 @@ install_drivers() {
             apt_install ubuntu-drivers-common
         fi
 
-        sudo ubuntu-drivers devices || true
+        run_sudo ubuntu-drivers devices || true
         log_warning "NVIDIA GPU detected - review drivers above and install manually if needed"
         report_add "WARN" "NVIDIA GPU present (manual driver installation recommended)"
     elif has_amd_gpu; then
@@ -482,11 +505,11 @@ security_baseline() {
     fi
 
     if (( allow_ssh == 1 )); then
-        sudo ufw allow OpenSSH
+        run_sudo ufw allow OpenSSH
         log_success "UFW: OpenSSH allowed"
     fi
 
-    sudo ufw --force enable
+    run_sudo ufw --force enable
     log_success "UFW enabled"
     report_add "PASS" "UFW firewall enabled"
 
@@ -499,7 +522,7 @@ security_baseline() {
     # AppArmor check
     if command -v aa-status >/dev/null 2>&1; then
         log_info "AppArmor status:"
-        sudo aa-status --enabled && log_success "AppArmor is enabled" || log_warning "AppArmor is not enabled"
+        run_sudo aa-status --enabled && log_success "AppArmor is enabled" || log_warning "AppArmor is not enabled"
         report_add "PASS" "AppArmor checked"
     fi
 }
@@ -560,8 +583,8 @@ secure_profile_extras() {
     # fail2ban
     if confirm "Install fail2ban (bruteforce protection)?"; then
         apt_install fail2ban
-        sudo systemctl enable fail2ban
-        sudo systemctl start fail2ban
+        run_sudo systemctl enable fail2ban
+        run_sudo systemctl start fail2ban
         log_success "fail2ban installed and enabled"
         report_add "PASS" "fail2ban enabled"
     fi
@@ -569,8 +592,8 @@ secure_profile_extras() {
     # auditd
     if confirm "Install auditd (system auditing)?"; then
         apt_install auditd audispd-plugins
-        sudo systemctl enable auditd
-        sudo systemctl start auditd
+        run_sudo systemctl enable auditd
+        run_sudo systemctl start auditd
         log_success "auditd installed and enabled"
         report_add "PASS" "auditd enabled"
     fi
@@ -718,10 +741,10 @@ run_doctor_checks() {
     log_step "Running Doctor Checks (Read-Only)"
     echo ""
 
-    # Check sudo access
-    if sudo -n true 2>/dev/null; then
+    # Check sudo access (skip in DRY_RUN/CI-forbid)
+    if privileged_has_cached_sudo; then
         log_success "Sudo access: available (cached)"
-    else
+    elif (( DRY_RUN == 0 )) && (( CI_MODE == 0 )); then
         log_info "Sudo access: will be required (not cached)"
     fi
 
@@ -766,10 +789,10 @@ run_doctor_checks() {
         log_info "Saving debug artifacts..."
         apt-cache policy > "$LOG_DIR/apt-policy.txt" 2>&1 || true
         dpkg -l > "$LOG_DIR/dpkg-audit.txt" 2>&1 || true
-        sudo ufw status verbose > "$LOG_DIR/ufw-status.txt" 2>&1 || true
+        run_sudo ufw status verbose > "$LOG_DIR/ufw-status.txt" 2>&1 || true
         systemctl status unattended-upgrades > "$LOG_DIR/unattended-status.txt" 2>&1 || true
         fwupdmgr get-devices > "$LOG_DIR/fwupd-devices.txt" 2>&1 || true
-        sudo journalctl -b --priority=3 --no-pager | head -100 > "$LOG_DIR/journal-errors-top.txt" 2>&1 || true
+        run_sudo journalctl -b --priority=3 --no-pager | head -100 > "$LOG_DIR/journal-errors-top.txt" 2>&1 || true
         log_success "Debug artifacts saved to $LOG_DIR"
     fi
 
