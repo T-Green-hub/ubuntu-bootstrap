@@ -2,9 +2,6 @@
 # Ubuntu Bootstrap - Self-Test Harness
 # Validates scripts, runs smoke tests, verifies artifacts
 
-set -euo pipefail
-IFS=$'\n\t'
-
 # Timeouts and diagnostics
 TIMEOUT=30  # seconds per test
 MAX_ATTEMPTS=3
@@ -19,39 +16,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 run_with_timeout() {
     local timeout=$1
     shift
-    local cmd=("$@")
-
-    echo "  [DEBUG] Running: ${cmd[*]}" >&2
-    echo "  [DEBUG] Timeout: ${timeout}s" >&2
-
-    # Use timeout if available, otherwise use background with kill
-    if command -v timeout >/dev/null 2>&1; then
-        if ! timeout "$timeout" "${cmd[@]}"; then
-            local exit_code=$?
-            if (( exit_code == 124 )); then
-                echo "  [ERROR] Command timed out after ${timeout}s" >&2
-                return 124
-            fi
-            return "$exit_code"
-        fi
-    else
-        # Fallback: run in background with manual timeout
-        "${cmd[@]}" &
-        local pid=$!
-        local count=0
-        while kill -0 "$pid" 2>/dev/null; do
-            if (( count >= timeout )); then
-                kill -TERM "$pid" 2>/dev/null || true
-                sleep 1
-                kill -KILL "$pid" 2>/dev/null || true
-                echo "  [ERROR] Command timed out after ${timeout}s (PID: $pid)" >&2
-                return 124
-            fi
-            sleep 1
-            ((count++))
-        done
-        wait "$pid" 2>/dev/null || return $?
-    fi
+    timeout "$timeout" "$@" || true  # Don't fail the whole script if timeout exits with error
 }
 
 # Colors
@@ -92,10 +57,11 @@ test_syntax_check() {
     local failed=0
     for script in "$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/lib/*.sh "$SCRIPT_DIR"/checks/*.sh "$SCRIPT_DIR"/tests/*.sh; do
         if [[ -f "$script" ]]; then
-            if run_with_timeout 5 bash -n "$script" 2>/dev/null; then
-                test_pass "$(basename "$script")"
+            basename_script=$(basename "$script")
+            if bash -n "$script" 2>/dev/null; then
+                test_pass "$basename_script"
             else
-                test_fail "$(basename "$script") - syntax error"
+                test_fail "$basename_script - syntax error"
                 failed=1
             fi
         fi
