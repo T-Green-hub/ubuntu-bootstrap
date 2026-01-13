@@ -138,7 +138,6 @@ test-quick: ## Run quick smoke tests only
 > @echo ""
 > @echo "Testing legacy scripts in DRY_RUN mode..."
 > DRY_RUN=1 bash scripts/run_bootstrap.sh
-> done
 > @echo "✓ Quick tests passed!"
 
 test-dry-run: ## Test all scripts in DRY_RUN mode
