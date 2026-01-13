@@ -70,19 +70,52 @@ escape_json() {
 }
 
 run_capture() {
-    local name="$1" cmd="$2"
+    local name="$1"
+    shift
     local output_file="$LOGS_DIR/${name}.txt"
 
     {
         echo "=== NAME=$name"
         echo "=== UTC_TS=$(date -u +%Y%m%dT%H%M%SZ)"
-        echo "=== CMD=$cmd"
+        printf '=== ARGV='
+        printf ' %q' "$@"
+        echo
         echo "=== PWD=$(pwd)"
         echo ""
     } > "$output_file"
 
     set +e
-    eval "$cmd" >> "$output_file" 2>&1
+    "$@" >> "$output_file" 2>&1
+    local rc=$?
+    set -e
+
+    echo "" >> "$output_file"
+    echo "=== RC=$rc" >> "$output_file"
+
+    if (( rc == 0 )); then
+        log_info "capture [$name]: ok"
+    else
+        log_info "capture [$name]: rc=$rc"
+    fi
+
+    return $rc
+}
+
+run_capture_shell() {
+    local name="$1" script="$2"
+    local output_file="$LOGS_DIR/${name}.txt"
+
+    {
+        echo "=== NAME=$name"
+        echo "=== UTC_TS=$(date -u +%Y%m%dT%H%M%SZ)"
+        echo "=== SHELL=bash -lc"
+        echo "=== CMD=$script"
+        echo "=== PWD=$(pwd)"
+        echo ""
+    } > "$output_file"
+
+    set +e
+    bash -lc "$script" >> "$output_file" 2>&1
     local rc=$?
     set -e
 
@@ -99,8 +132,9 @@ run_capture() {
 }
 
 run_must() {
-    local name="$1" cmd="$2"
-    if run_capture "$name" "$cmd"; then
+    local name="$1"
+    shift
+    if run_capture "$name" "$@"; then
         return 0
     else
         local rc=$?
@@ -290,7 +324,7 @@ capture_prior_state() {
     fi
     echo "AMD_MICROCODE_BEFORE=$AMD_MICROCODE_BEFORE" >> "$prior_state_file"
 
-    run_capture "prior_state" "cat '$prior_state_file'"
+    run_capture "prior_state" cat "$prior_state_file"
     log_success "Prior state captured"
 }
 
@@ -312,12 +346,12 @@ track_action() {
 apply_group1_performance() {
     log_step "Group 1: Performance"
 
-    run_capture "before_fstrim" "systemctl status fstrim.timer --no-pager 2>/dev/null || true"
+    run_capture_shell "before_fstrim" "systemctl status fstrim.timer --no-pager 2>/dev/null || true"
     if systemctl is-enabled fstrim.timer >/dev/null 2>&1; then
         track_action "enable_fstrim" "already_enabled"
     else
-        run_capture "enable_fstrim" "sudo -n systemctl enable fstrim.timer"
-        run_capture "start_fstrim" "sudo -n systemctl start fstrim.timer"
+        run_capture "enable_fstrim" sudo -n systemctl enable fstrim.timer
+        run_capture "start_fstrim" sudo -n systemctl start fstrim.timer
         track_action "enable_fstrim" "enabled"
         report_add "PASS" "fstrim.timer enabled"
         if [[ "$FSTRIM_ENABLED_BEFORE" == "false" ]]; then
@@ -326,14 +360,14 @@ apply_group1_performance() {
             add_rollback "sudo -n systemctl disable fstrim.timer 2>/dev/null || true"
         fi
     fi
-    run_capture "after_fstrim" "systemctl status fstrim.timer --no-pager 2>/dev/null || true"
+    run_capture_shell "after_fstrim" "systemctl status fstrim.timer --no-pager 2>/dev/null || true"
 
-    run_capture "before_microcode" "dpkg -s amd64-microcode 2>/dev/null || echo 'Not installed'"
+    run_capture_shell "before_microcode" "dpkg -s amd64-microcode 2>/dev/null || echo 'Not installed'"
     if dpkg -s amd64-microcode >/dev/null 2>&1; then
         track_action "install_microcode" "already_installed"
     else
-        run_must "apt_update_microcode" "DEBIAN_FRONTEND=noninteractive sudo -n apt-get update"
-        run_must "apt_install_microcode" "DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y amd64-microcode"
+        run_must "apt_update_microcode" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must "apt_install_microcode" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y amd64-microcode
         INSTALLED_PACKAGES+=("amd64-microcode")
         track_action "install_microcode" "installed"
         report_add "PASS" "amd64-microcode installed"
@@ -343,7 +377,7 @@ apply_group1_performance() {
             add_rollback "sudo -n apt-get autoremove -y 2>/dev/null || true"
         fi
     fi
-    run_capture "after_microcode" "dpkg -s amd64-microcode 2>/dev/null || echo 'Not installed'"
+    run_capture_shell "after_microcode" "dpkg -s amd64-microcode 2>/dev/null || echo 'Not installed'"
 
     if (( ENABLE_ZRAM == 1 )); then
         track_action "enable_zram" "not_implemented" "Flag not implemented"
@@ -354,9 +388,10 @@ apply_group1_performance() {
 apply_group2_security() {
     log_step "Group 2: Security"
 
-    run_capture "before_ufw" "sudo -n ufw status verbose 2>/dev/null || echo 'UFW unavailable'"
+    run_capture_shell "before_ufw" "sudo -n ufw status verbose 2>/dev/null || echo 'UFW unavailable'"
     if ! command -v ufw >/dev/null 2>&1; then
-        run_must "apt_install_ufw" "DEBIAN_FRONTEND=noninteractive sudo -n apt-get update && DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y ufw"
+        run_must "apt_install_ufw" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must "apt_install_ufw_pkg" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y ufw
         INSTALLED_PACKAGES+=("ufw")
         track_action "install_ufw" "installed"
     else
@@ -368,9 +403,9 @@ apply_group2_security() {
     if [[ "$ufw_status" == *"Status: active"* ]]; then
         track_action "configure_ufw" "already_active"
     else
-        run_capture "ufw_default_deny" "sudo -n ufw --force default deny incoming"
-        run_capture "ufw_default_allow" "sudo -n ufw --force default allow outgoing"
-        run_capture "ufw_enable" "sudo -n ufw --force enable"
+        run_capture "ufw_default_deny" sudo -n ufw --force default deny incoming
+        run_capture "ufw_default_allow" sudo -n ufw --force default allow outgoing
+        run_capture "ufw_enable" sudo -n ufw --force enable
         track_action "configure_ufw" "configured"
         report_add "PASS" "UFW enabled (deny in / allow out)"
         if [[ "$UFW_ENABLED_BEFORE" == "false" ]]; then
@@ -390,13 +425,14 @@ apply_group2_security() {
             fi
         fi
     fi
-    run_capture "after_ufw" "sudo -n ufw status verbose 2>/dev/null || echo 'UFW unavailable'"
+    run_capture_shell "after_ufw" "sudo -n ufw status verbose 2>/dev/null || echo 'UFW unavailable'"
 
-    run_capture "before_unattended" "dpkg -s unattended-upgrades 2>/dev/null || echo 'Not installed'"
+    run_capture_shell "before_unattended" "dpkg -s unattended-upgrades 2>/dev/null || echo 'Not installed'"
     if dpkg -s unattended-upgrades >/dev/null 2>&1; then
         track_action "install_unattended" "already_installed"
     else
-        run_must "apt_install_unattended" "DEBIAN_FRONTEND=noninteractive sudo -n apt-get update && DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y unattended-upgrades"
+        run_must "apt_update_unattended" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must "apt_install_unattended" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y unattended-upgrades
         INSTALLED_PACKAGES+=("unattended-upgrades")
         track_action "install_unattended" "installed"
         report_add "PASS" "unattended-upgrades installed"
@@ -406,7 +442,7 @@ apply_group2_security() {
             add_rollback "sudo -n apt-get autoremove -y 2>/dev/null || true"
         fi
     fi
-    run_capture "after_unattended" "dpkg -s unattended-upgrades 2>/dev/null || echo 'Not installed'"
+    run_capture_shell "after_unattended" "dpkg -s unattended-upgrades 2>/dev/null || echo 'Not installed'"
 }
 
 apply_group3_devtools() {
@@ -425,7 +461,7 @@ apply_group3_devtools() {
         wireguard-tools
     )
 
-    run_capture "before_packages" "dpkg -l | grep -E 'build-essential|git|docker|pipx' || true"
+    run_capture_shell "before_packages" "dpkg -l | grep -E 'build-essential|git|docker|pipx' || true"
 
     local to_install=()
     for pkg in "${packages[@]}"; do
@@ -437,8 +473,8 @@ apply_group3_devtools() {
     if (( ${#to_install[@]} == 0 )); then
         track_action "install_devtools" "already_installed"
     else
-        run_must "apt_update_devtools" "DEBIAN_FRONTEND=noninteractive sudo -n apt-get update"
-        run_must "apt_install_devtools" "DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y ${to_install[@]}"
+        run_must "apt_update_devtools" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get update
+        run_must "apt_install_devtools" env DEBIAN_FRONTEND=noninteractive sudo -n apt-get install -y "${to_install[@]}"
         for pkg in "${to_install[@]}"; do
             INSTALLED_PACKAGES+=("$pkg")
         done
@@ -449,7 +485,7 @@ apply_group3_devtools() {
         add_rollback "sudo -n apt-get autoremove -y 2>/dev/null || true"
     fi
 
-    run_capture "after_packages" "dpkg -l | grep -E 'build-essential|git|docker|pipx' || true"
+    run_capture_shell "after_packages" "dpkg -l | grep -E 'build-essential|git|docker|pipx' || true"
 
     if (( ENABLE_DOCKER_OFFICIAL == 1 )); then
         track_action "enable_docker_official" "not_implemented" "Flag not implemented"
