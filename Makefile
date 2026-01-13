@@ -103,10 +103,6 @@ test: ## Run full test suite for all modules
 > @echo "Running full test suite..."
 > bash "$(DIR)/scripts/tests/self_test.sh"
 
-test-quick: ## Quick syntax check for all scripts
-> @echo "Running quick syntax check..."
-> @bash "$(DIR)/scripts/tests/self_test.sh" 2>&1 | grep -A 100 "Test: Bash Syntax Check" | head -50
-
 doctor: ## Run doctor checks (bootstrap + health checker)
 > @echo "Running doctor checks..."
 > bash "$(DIR)/scripts/bootstrap.sh" --doctor
