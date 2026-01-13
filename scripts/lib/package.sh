@@ -61,9 +61,19 @@ wait_for_apt_lock() {
             fi
         done
 
-        # Check for running package managers
-        if pgrep -x "apt-get|apt|dpkg|unattended-upgr" >/dev/null 2>&1; then
+        # Check for running package managers (active operations only)
+        # Note: unattended-upgrade-shutdown --wait-for-signal is a shutdown hook, not an active update
+        # We check for actual apt/dpkg commands, not background daemons
+        if pgrep -f "apt-get (update|upgrade|install|remove|autoremove)" >/dev/null 2>&1; then
             busy=1
+        elif pgrep -f "dpkg --configure" >/dev/null 2>&1; then
+            busy=1
+        elif pgrep -f "/usr/bin/unattended-upgrade\b" >/dev/null 2>&1; then
+            # Only match the actual upgrade process, not the shutdown hook
+            if ! pgrep -f "unattended-upgrade-shutdown" >/dev/null 2>&1 || \
+               pgrep -f "/usr/bin/unattended-upgrade[^-]" >/dev/null 2>&1; then
+                busy=1
+            fi
         fi
 
         if (( busy == 0 )); then

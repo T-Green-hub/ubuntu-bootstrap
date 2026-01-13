@@ -7,26 +7,53 @@ Set up Ubuntu 24.04 (Noble) for development and daily use with one command. Feat
 
 - 🚀 **5-minute setup** - Everything you need, installed correctly
 - 🎯 **Interactive menu** - User-friendly guided installation
-- 🔋 **Smart power management** - Better battery life on laptops  
+- 🔋 **Smart power management** - Better battery life on laptops
 - 💻 **Hardware-specific optimizations** - ThinkPad T14s Gen 2 & more
 - 🛡️ **Privacy & security** - Hardened settings and firewall
 - 🛠️ **Developer ready** - Docker, Python, Node.js, and more
 - ✅ **Safe to run** - Preview changes, progress tracking, no surprises
 
-## Getting Started
+## 🚀 Getting Started
 
 ### 🌟 First Time User? Start Here!
 
-**Copy, paste, and press Enter - that's it!**
+**Quick Start - Copy, paste, and press Enter:**
 
 ```bash
-sudo apt update && sudo apt install -y git make && \
-git clone https://github.com/T-Green-hub/ubuntu-bootstrap.git && \
-cd ubuntu-bootstrap && \
-make run
+# Clone repository
+git clone https://github.com/T-Green-hub/ubuntu-bootstrap.git
+cd ubuntu-bootstrap
+
+# Preview what will be done (no changes made)
+bash scripts/bootstrap.sh --profile minimal --dry-run
+
+# Run full setup (interactive prompts)
+bash scripts/bootstrap.sh --profile minimal --interactive
 ```
 
-☕ **Grab coffee! Installation takes 5-15 minutes.**
+☕ **Installation takes 5-15 minutes** depending on your internet connection and chosen features.
+
+---
+
+### 🎯 Choose Your Setup Path
+
+**Path 1: Security First** (Recommended for laptops and public networks)
+```bash
+# Secure profile: UFW + Fail2Ban + Auditd + VPN setup
+bash scripts/bootstrap.sh --profile secure --interactive
+```
+
+**Path 2: Developer Setup** (For software development)
+```bash
+# Dev profile: Build tools + Git + Node.js + Python + Docker
+bash scripts/bootstrap.sh --profile dev --interactive
+```
+
+**Path 3: Minimal Setup** (Just the essentials)
+```bash
+# Minimal profile: System updates + firmware + basic security
+bash scripts/bootstrap.sh --profile minimal --yes
+```
 
 ---
 
@@ -112,6 +139,39 @@ sudo reboot
 - 🔍 [System Detection](docs/SYSTEM_DETECTION.md) - Hardware detection and compatibility
 - ✅ [Post‑Install Guide](docs/POST_INSTALL.md) - Best order and practices after bootstrap
 
+## What's New in Phase 2? ✨
+
+Ubuntu Bootstrap now includes **user-friendly enhancements** that make setup easier and more educational:
+
+### 🌐 Privacy & VPN Setup
+- **DNS Privacy** - Encrypted DNS queries (8 providers: Cloudflare, Google, Quad9, Mullvad, NextDNS, etc.)
+- **ProtonVPN Integration** - Easy privacy VPN setup with auto-connect
+- Clear explanations: "How It Works" for each tool
+- All explained in plain language for all skill levels
+
+### 🎨 Shell Customization
+- **Bash** - Default, universal, reliable
+- **Zsh** - Enhanced with Oh-My-Zsh, plugins, themes
+- **Fish** - Modern, beginner-friendly, auto-suggestions
+- Choose what works best for you
+
+### 🔧 Development Profiles
+Pre-configured tool bundles tailored to your workflow:
+- **🔧 Minimal** - Just the basics (gcc, git, curl, vim)
+- **🌐 Fullstack** - Web development (Node.js, Python, Docker)
+- **🤖 AI/ML** - Machine learning (Python + TensorFlow, PyTorch)
+- **⚙️ Systems** - Low-level programming (Rust, Go, C++)
+- **🎯 Custom** - Mix and match tools
+
+### 🔐 Security Hardening
+- **UFW Firewall** - Blocks unauthorized network access
+- **Fail2Ban** - Protects against brute-force attacks
+- **Auditd** - System auditing for compliance
+- **ClamAV** - Antivirus scanning (optional)
+- Each tool explained with "How It Works" sections
+
+---
+
 ## Key Features
 
 ### Base System Setup
@@ -121,6 +181,7 @@ sudo reboot
 - Firewall configuration (UFW)
 - Laptop power optimization
 - System maintenance automation
+- 🆕 Clear educational explanations for all settings
 
 ### Developer Tools (Optional)
 
@@ -131,6 +192,7 @@ sudo reboot
 - Go with proper PATH setup
 - VS Code with essential extensions
 - Development utilities (jq, ripgrep, etc.)
+- 🆕 Choose from dev profiles or custom tools
 
 ### Optional Features
 
@@ -141,6 +203,8 @@ Recommended order: install optional features after base/dev-tools for faster run
 - **TimeShift** - System snapshots and restore
 - **VLC Media Player** - Feature-rich multimedia player with codec support
 - **LibreOffice** - Full office suite (Writer, Calc, Impress, Draw, Base, Math)
+- 🆕 **DNS Privacy** - Multiple providers with explanations
+- 🆕 **Shell Customization** - Personalize your terminal
 
 ### Safety Features
 
@@ -150,6 +214,7 @@ Recommended order: install optional features after base/dev-tools for faster run
 - Per-script logging
 - Full uninstall support for dev modules
 - Automatic backups before uninstall
+- 🆕 "How It Works" sections explain every feature
 
 ## Quick Commands
 
@@ -212,7 +277,7 @@ DRY_RUN=1 make run
 
 ## License
 
-[MIT](LICENSE) © 2025 T-Green-hub  
+[MIT](LICENSE) © 2025 T-Green-hub
 Repository: https://github.com/T-Green-hub/ubuntu-bootstrap
 
 ## Hardware profiles

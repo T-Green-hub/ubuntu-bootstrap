@@ -485,7 +485,29 @@ setup_power_management() {
 
 # Security baseline
 security_baseline() {
-    log_step "G. Security Baseline"
+    log_step "G. 🔐 Security Baseline"
+
+    log_info ""
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info "  🛡️  Essential Security Features"
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "This step configures fundamental security protections:"
+    log_info ""
+    log_info "  🔥 UFW (Uncomplicated Firewall)"
+    log_info "     Blocks unauthorized network access to your system."
+    log_info ""
+    log_info "  🔄 Unattended Upgrades"
+    log_info "     Automatically installs critical security patches."
+    log_info ""
+    log_info "  🛡️  AppArmor"
+    log_info "     Restricts what applications can access on your system."
+    log_info ""
+    log_info "💡 How It Works:"
+    log_info "   UFW creates rules that control which network connections"
+    log_info "   are allowed in/out. By default, it blocks all incoming"
+    log_info "   traffic except what you explicitly permit (like SSH)."
+    log_info ""
 
     if (( DRY_RUN == 1 )); then
         log_info "[DRY RUN] Would: enable ufw, configure unattended-upgrades, check apparmor"
@@ -567,7 +589,7 @@ dev_profile_extras() {
 
 # Secure profile extras
 secure_profile_extras() {
-    log_step "I. Security Hardening (secure profile)"
+    log_step "I. 🔒 Security Hardening (secure profile)"
 
     if [[ "$PROFILE" != "secure" ]]; then
         log_info "Skipping (profile: $PROFILE)"
@@ -575,27 +597,83 @@ secure_profile_extras() {
     fi
 
     if (( DRY_RUN == 1 )); then
-        log_info "[DRY RUN] Would install: fail2ban, auditd"
+        log_info "[DRY RUN] Would install: fail2ban, auditd, clamav"
         report_add "PASS" "Security hardening (dry-run)"
         return 0
     fi
 
-    # fail2ban
-    if confirm "Install fail2ban (bruteforce protection)?"; then
+    log_info ""
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info "  🛡️  Advanced Security Hardening"
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "This profile adds enterprise-grade security tools:"
+    log_info ""
+    log_info "  🚫 Fail2Ban - Brute-Force Protection"
+    log_info "     Monitors login attempts and blocks attackers after"
+    log_info "     repeated failures. Essential for SSH security."
+    log_info ""
+    log_info "     💡 How It Works: Scans /var/log/auth.log for failed"
+    log_info "        logins. After 5 failures, blocks the IP for 10min."
+    log_info ""
+    log_info "  📝 Auditd - System Auditing"
+    log_info "     Records system calls and security-relevant events"
+    log_info "     for compliance and forensic analysis."
+    log_info ""
+    log_info "     💡 How It Works: Logs file access, user commands,"
+    log_info "        and permission changes to /var/log/audit/audit.log"
+    log_info ""
+    log_info "  🦠 ClamAV - Antivirus Scanner (Optional)"
+    log_info "     Scans files for malware - useful when sharing files"
+    log_info "     with Windows users or scanning email attachments."
+    log_info ""
+    log_info "     💡 How It Works: Uses signature database updated daily"
+    log_info "        to detect known malware patterns in files."
+    log_info ""
+
+    # fail2ban (auto-install with --yes, otherwise ask)
+    if (( AUTO_YES == 1 )) || confirm "Install fail2ban (bruteforce protection)?"; then
         apt_install fail2ban
         run_sudo systemctl enable fail2ban
         run_sudo systemctl start fail2ban
         log_success "fail2ban installed and enabled"
         report_add "PASS" "fail2ban enabled"
+    else
+        log_info "Skipping fail2ban"
     fi
 
-    # auditd
-    if confirm "Install auditd (system auditing)?"; then
+    # auditd (auto-install with --yes, otherwise ask)
+    if (( AUTO_YES == 1 )) || confirm "Install auditd (system auditing)?"; then
         apt_install auditd audispd-plugins
         run_sudo systemctl enable auditd
         run_sudo systemctl start auditd
         log_success "auditd installed and enabled"
         report_add "PASS" "auditd enabled"
+    else
+        log_info "Skipping auditd"
+    fi
+
+    # ClamAV (optional antivirus)
+    log_info ""
+    log_info "ClamAV provides antivirus scanning for:"
+    log_info "  • Scanning files shared with Windows users"
+    log_info "  • Detecting cross-platform malware"
+    log_info "  • Automated scanning of downloads"
+    log_info "Note: Linux malware is rare; ClamAV is optional for most users."
+    log_info ""
+    if confirm "Install ClamAV antivirus scanner (optional)?"; then
+        apt_install clamav clamav-daemon
+        log_info "Updating ClamAV virus definitions (this may take a few minutes)..."
+        run_sudo systemctl stop clamav-freshclam || true
+        run_sudo freshclam || log_warning "ClamAV database update failed (will retry automatically)"
+        run_sudo systemctl start clamav-freshclam
+        run_sudo systemctl enable clamav-freshclam
+        log_success "ClamAV installed and enabled"
+        log_info "  • Scan a file: clamscan /path/to/file"
+        log_info "  • Scan a directory: clamscan -r /path/to/directory"
+        report_add "PASS" "ClamAV enabled"
+    else
+        log_info "Skipping ClamAV"
     fi
 
     # Backup solution (optional)
@@ -610,6 +688,121 @@ secure_profile_extras() {
     log_info "OPTIONAL: sysctl hardening"
     log_info "Sysctl hardening can be applied via /etc/sysctl.d/ drop-in files"
     log_info "Review carefully to avoid breaking development workflows"
+}
+
+# Optional VPN setup
+optional_vpn_setup() {
+    log_step "J. 🌐 Privacy & VPN Setup (Optional)"
+
+    log_info ""
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info "  🔐 ProtonVPN - Privacy & Security Enhancement"
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "A VPN (Virtual Private Network) protects your privacy by:"
+    log_info ""
+    log_info "  🔒 Encrypting ALL your internet traffic"
+    log_info "     Your ISP, hackers, and network admins cannot see"
+    log_info "     what websites you visit or data you transmit."
+    log_info ""
+    log_info "  🌍 Hiding your real IP address"
+    log_info "     Websites see ProtonVPN's server IP, not yours."
+    log_info "     Great for privacy and accessing geo-blocked content."
+    log_info ""
+    log_info "  🛡️  Protecting on public WiFi"
+    log_info "     Coffee shop, airport, hotel WiFi becomes safe to use."
+    log_info ""
+    log_info "💡 How It Works:"
+    log_info "   ProtonVPN creates an encrypted 'tunnel' between your"
+    log_info "   computer and ProtonVPN's servers. All your internet"
+    log_info "   traffic travels through this tunnel, invisible to anyone"
+    log_info "   monitoring your network connection."
+    log_info ""
+    log_info "Installation includes:"
+    log_info "  ✓ ProtonVPN GUI application (easy point-and-click)"
+    log_info "  ✓ Auto-connect on startup (optional)"
+    log_info "  ✓ DNS leak protection (prevents DNS queries bypassing VPN)"
+    log_info "  ✓ Kill switch (blocks internet if VPN disconnects)"
+    log_info ""
+
+    if (( DRY_RUN == 1 )); then
+        log_info "[DRY RUN] Would prompt for ProtonVPN installation"
+        return 0
+    fi
+
+    if confirm "Install ProtonVPN now?"; then
+        local vpn_script="$SCRIPT_DIR/optional-features/protonvpn.sh"
+        if [[ -f "$vpn_script" ]]; then
+            log_info "Installing ProtonVPN..."
+            bash "$vpn_script" || log_warning "ProtonVPN installation had issues (check logs)"
+            report_add "PASS" "ProtonVPN installation attempted"
+        else
+            log_error "ProtonVPN script not found: $vpn_script"
+            report_add "FAIL" "ProtonVPN script missing"
+        fi
+    else
+        log_info "Skipping ProtonVPN"
+        log_info "  To install later: bash scripts/optional-features/protonvpn.sh"
+    fi
+
+    # DNS Privacy (DNS over TLS)
+    log_info ""
+    log_info "DNS Privacy Enhancement:"
+    log_info "  DNS over TLS encrypts DNS queries, preventing ISP tracking."
+    log_info "  Providers: Cloudflare (1.1.1.1), Google (8.8.8.8), Quad9 (9.9.9.9)"
+    log_info ""
+
+    if confirm "Configure encrypted DNS (DNS over TLS)?"; then
+        local dns_script="$LIB_DIR/dns_privacy.sh"
+        if [[ -f "$dns_script" ]]; then
+            log_info "Launching DNS privacy configuration..."
+            bash "$dns_script" --interactive || log_warning "DNS configuration had issues"
+            report_add "PASS" "DNS privacy configured"
+        else
+            log_warning "DNS privacy script not found: $dns_script"
+            report_add "WARN" "DNS privacy script missing"
+        fi
+    else
+        log_info "Skipping DNS privacy"
+        log_info "  To configure later: bash scripts/lib/dns_privacy.sh --interactive"
+    fi
+}
+
+# Optional shell/theme customization
+optional_customization() {
+    log_step "K. Shell & Theme Customization (Optional)"
+
+    log_info ""
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info "  Shell & Terminal Customization"
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "Options available:"
+    log_info "  • Install Zsh with Oh-My-Zsh (themes, plugins)"
+    log_info "  • Install Fish shell (autosuggestions, syntax highlighting)"
+    log_info "  • Configure bash with useful defaults"
+    log_info "  • Install terminal color themes (Dracula, etc.)"
+    log_info ""
+
+    if (( DRY_RUN == 1 )); then
+        log_info "[DRY RUN] Would prompt for shell customization"
+        return 0
+    fi
+
+    if confirm "Configure shell customization?"; then
+        local custom_script="$LIB_DIR/customization.sh"
+        if [[ -f "$custom_script" ]]; then
+            log_info "Launching customization wizard..."
+            bash "$custom_script" --interactive || log_warning "Customization had issues"
+            report_add "PASS" "Shell customization attempted"
+        else
+            log_warning "Customization script not found: $custom_script"
+            report_add "WARN" "Customization script missing"
+        fi
+    else
+        log_info "Skipping customization"
+        log_info "  To configure later: bash scripts/lib/customization.sh --interactive"
+    fi
 }
 
 # Interactive mode
@@ -723,11 +916,23 @@ print_plan() {
         echo "I. Security Hardening (secure profile)"
         echo "   - Optionally install fail2ban"
         echo "   - Optionally install auditd"
+        echo "   - Optionally install ClamAV"
         echo "   - Document backup solutions and sysctl hardening"
         echo ""
     fi
 
-    echo "J. Verification Summary"
+    echo "J. Privacy & VPN Setup (Optional)"
+    echo "   - Optionally install ProtonVPN"
+    echo "   - Configure DNS over TLS (encrypted DNS queries)"
+    echo ""
+
+    echo "K. Shell & Theme Customization (Optional)"
+    echo "   - Optionally install zsh with Oh-My-Zsh"
+    echo "   - Optionally configure bash defaults"
+    echo "   - Terminal theme configuration"
+    echo ""
+
+    echo "L. Verification Summary"
     echo "   - Check for pending updates"
     echo "   - Verify core services (ufw, unattended-upgrades)"
     echo "   - Generate reports (report.json, report.txt)"
@@ -820,7 +1025,7 @@ create_bundle() {
 
 # Verification summary
 verification_summary() {
-    log_step "J. Verification Summary"
+    log_step "L. Verification Summary"
 
     # Check pending updates
     local updates
@@ -929,6 +1134,8 @@ main() {
     security_baseline
     dev_profile_extras
     secure_profile_extras
+    optional_vpn_setup
+    optional_customization
     verification_summary
 }
 

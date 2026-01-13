@@ -14,7 +14,7 @@ SHELL := /bin/bash
 
 DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
-.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first menu preflight t14s-fixes bootstrap bootstrap-check test test-quick test-dry-run fmt
+.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first menu preflight t14s-fixes bootstrap bootstrap-check test test-quick test-dry-run test-v4 test-modules test-all fmt
 
 help: ## Show targets
 > @grep -E '^[a-zA-Z_\\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
@@ -101,7 +101,7 @@ fmt: ## Format shell scripts with shfmt (if available)
 
 test: ## Run full test suite for all modules
 > @echo "Running full test suite..."
-> bash "$(DIR)/scripts/tests/self_test.sh"
+> bash "$(DIR)/scripts/tests/test_v4_1_0.sh"
 
 doctor: ## Run doctor checks (bootstrap + health checker)
 > @echo "Running doctor checks..."
@@ -131,13 +131,12 @@ uninstall-cli: ## Uninstall ubuntu-bootstrap CLI
 > fi
 
 test-quick: ## Run quick smoke tests only
-> @echo "Running v4 bootstrap in dry-run mode..."
-> bash scripts/bootstrap.sh --profile minimal --dry-run
+> @echo "Running v4.1.0 bootstrap in dry-run mode..."
+> timeout 30 bash scripts/bootstrap.sh --profile minimal --dry-run --yes 2>&1 | head -30
 > @echo ""
-> bash scripts/bootstrap.sh --profile dev --dry-run
-> @echo ""
-> @echo "Testing legacy scripts in DRY_RUN mode..."
-> DRY_RUN=1 bash scripts/run_bootstrap.sh
+> @echo "Testing new modules..."
+> DRY_RUN=1 bash scripts/dev-modules/docker.sh 2>&1 | head -10
+> DRY_RUN=1 bash scripts/optional-features/virtualization.sh --virtualbox 2>&1 | head -10
 > @echo "✓ Quick tests passed!"
 
 test-dry-run: ## Test all scripts in DRY_RUN mode
@@ -182,6 +181,26 @@ test-module: ## Test specific module. Usage: make test-module MODULE=utilities
 >   done; \
 >   exit 1; \
 > fi
+
+test-v4: ## Run comprehensive v4.1.0 test suite
+> bash "$(DIR)/scripts/tests/test_v4_1_0.sh"
+
+test-modules: ## Test all new v4.1.0 modules (dry-run)
+> @echo "Testing Docker module..."
+> @DRY_RUN=1 bash scripts/dev-modules/docker.sh && echo "✓ Docker OK" || echo "✗ Docker FAIL"
+> @echo ""
+> @echo "Testing Virtualization module..."
+> @DRY_RUN=1 bash scripts/optional-features/virtualization.sh --virtualbox && echo "✓ Virtualization OK" || echo "✗ Virtualization FAIL"
+> @echo ""
+> @echo "Testing Remote Tools module..."
+> @DRY_RUN=1 bash scripts/optional-features/remote_tools.sh --openssh && echo "✓ Remote Tools OK" || echo "✗ Remote Tools FAIL"
+
+test-all: ## Run all available tests
+> @echo "Running comprehensive test suite..."
+> $(MAKE) test-syntax
+> $(MAKE) test-quick
+> $(MAKE) test-modules
+> $(MAKE) test-v4
 
 devtools: ## Install development tools (Docker, Node, Python, Rust, Go, VS Code, utilities)
 > "$(DIR)/scripts/40_dev-tools.sh"

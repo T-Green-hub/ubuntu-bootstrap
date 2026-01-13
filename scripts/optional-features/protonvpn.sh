@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ProtonVPN installation for Ubuntu 24.04
 # Installs the official ProtonVPN app (daemon + GTK GUI).
-# 
+#
 # Usage:
 #   ./protonvpn.sh                    # Install ProtonVPN
 #   DRY_RUN=1 ./protonvpn.sh          # Test without installing
@@ -21,14 +21,14 @@ install_protonvpn() {
     log "=== ProtonVPN Installation ==="
     log "Installing official ProtonVPN app (daemon + GUI)"
     log ""
-    
+
     # Check if already installed (official GUI app)
     if command -v protonvpn-app >/dev/null 2>&1 || is_installed proton-vpn-gnome-desktop; then
         log "✓ ProtonVPN app already installed"
         log "  Launch with: protonvpn-app"
         return 0
     fi
-    
+
     if [[ "${DRY_RUN:-0}" == "1" ]]; then
         log "[DRY RUN] Would install ProtonVPN repository and app"
         log "[DRY RUN] Steps:"
@@ -37,14 +37,14 @@ install_protonvpn() {
         log "[DRY RUN]   3. Install proton-vpn-gnome-desktop"
         return 0
     fi
-    
+
     # Check internet connectivity before proceeding
     if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
         log "ERROR: No internet connection. Cannot download ProtonVPN."
         log "       Please connect to the internet and try again."
         return 1
     fi
-    
+
     log "Step 1/3: Configuring ProtonVPN repository..."
     log ""
 
@@ -52,10 +52,10 @@ install_protonvpn() {
     local keyring_path="/usr/share/keyrings/proton-vpn-stable-archive-keyring.gpg"
     local key_url_primary="https://repo.protonvpn.com/debian/public_key.asc"
     local key_url_alt="https://repo.protonvpn.com/debian/dists/stable/public_key.asc"
-    
+
     log "  → Adding ProtonVPN GPG key..."
     local key_success=0
-    
+
     if wget -qO- "$key_url_primary" 2>/dev/null | $(need_sudo) gpg --batch --yes --dearmor -o "$keyring_path" 2>/dev/null; then
         log "  ✓ ProtonVPN keyring installed: $keyring_path"
         key_success=1
@@ -76,10 +76,10 @@ install_protonvpn() {
             return 1
         fi
     fi
-    
+
     log ""
     log "Step 2/3: Adding ProtonVPN repository..."
-    
+
     # Add repository if not already present
     local repo_file="/etc/apt/sources.list.d/protonvpn-stable.list"
     if [[ ! -f "$repo_file" ]]; then
@@ -89,10 +89,10 @@ install_protonvpn() {
     else
         log "  ✓ ProtonVPN repository already configured"
     fi
-    
+
     log ""
     log "  → Updating package lists..."
-    
+
     # Update package list (retry once if it fails due to key issues)
     if ! apt_safe update -qq; then
         log "  ⚠ First apt update failed; attempting key refresh and retry..."
@@ -110,18 +110,18 @@ install_protonvpn() {
         fi
     fi
     log "  ✓ Package lists updated"
-    
+
     log ""
     log "Step 3/3: Installing ProtonVPN packages..."
     log "  → Installing proton-vpn-gnome-desktop (this may take a few minutes)..."
-    
+
     # Install ProtonVPN official app (daemon + GTK GUI)
     if ! apt_safe install -y proton-vpn-gnome-desktop; then
         log "  ✗ ERROR: Failed to install ProtonVPN"
         log "    Try manually: sudo apt install -y proton-vpn-gnome-desktop"
         return 1
     fi
-    
+
     log "  ✓ ProtonVPN installed successfully"
     log ""
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -147,14 +147,14 @@ verify_protonvpn() {
         log "[DRY RUN] Would verify ProtonVPN installation"
         return 0
     fi
-    
+
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log "Verifying ProtonVPN Installation"
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log ""
-    
+
     local errors=0
-    
+
     # Check GUI application
     if command -v protonvpn-app >/dev/null 2>&1; then
         log "✓ ProtonVPN GUI available (protonvpn-app)"
@@ -162,7 +162,7 @@ verify_protonvpn() {
         log "✗ ProtonVPN GUI not found in PATH"
         errors=$((errors + 1))
     fi
-    
+
     # Check if package is installed
     if is_installed proton-vpn-gnome-desktop; then
         log "✓ Package proton-vpn-gnome-desktop installed"
@@ -170,26 +170,26 @@ verify_protonvpn() {
         log "✗ Package proton-vpn-gnome-desktop not installed"
         errors=$((errors + 1))
     fi
-    
+
     # Check daemon service
     if systemctl is-active --quiet me.proton.vpn.split_tunneling.service 2>/dev/null; then
         log "✓ ProtonVPN daemon service running"
     else
         log "⚠ ProtonVPN daemon service not running (will start on first launch)"
     fi
-    
+
     # Check if service is enabled
     if systemctl is-enabled --quiet me.proton.vpn.split_tunneling.service 2>/dev/null; then
         log "✓ ProtonVPN daemon service enabled"
     else
         log "⚠ ProtonVPN daemon service not enabled"
     fi
-    
+
     # Check for legacy CLI (informational only)
     if command -v protonvpn-cli >/dev/null 2>&1; then
         log "ℹ Legacy ProtonVPN CLI detected (separate installation)"
     fi
-    
+
     log ""
     if (( errors == 0 )); then
         log "✓ All checks passed!"
@@ -203,12 +203,113 @@ verify_protonvpn() {
     fi
 }
 
+# Setup VPN auto-connect on login
+setup_autoconnect() {
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "ProtonVPN Auto-Connect Setup"
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log ""
+
+    if [[ "${DRY_RUN:-0}" == "1" ]]; then
+        log "[DRY RUN] Would create autostart entry for ProtonVPN"
+        return 0
+    fi
+
+    # ProtonVPN GUI has built-in auto-connect feature
+    log "ProtonVPN Auto-Connect Options:"
+    log ""
+    log "  Option 1: Built-in (Recommended)"
+    log "    1. Open ProtonVPN app"
+    log "    2. Go to Settings → Connection"
+    log "    3. Enable 'Auto connect' and select server/location"
+    log ""
+    log "  Option 2: Autostart desktop entry"
+    log "    Creates ~/.config/autostart/protonvpn.desktop"
+    log ""
+
+    read -p "Create desktop autostart entry? [y/N] " -n 1 -r
+    echo
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log "Using built-in auto-connect instead"
+        return 0
+    fi
+
+    # Create autostart directory
+    local autostart_dir="$HOME/.config/autostart"
+    mkdir -p "$autostart_dir"
+
+    # Create desktop entry
+    cat > "$autostart_dir/protonvpn.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=ProtonVPN
+Comment=Start ProtonVPN on login
+Exec=protonvpn-app
+Icon=protonvpn
+Terminal=false
+Categories=Network;VPN;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5
+EOF
+
+    log "✓ Autostart entry created: $autostart_dir/protonvpn.desktop"
+    log ""
+    log "Note: Configure auto-connect in ProtonVPN Settings → Connection"
+    log "      to automatically connect to your preferred server on launch."
+}
+
+# Check VPN connection status
+check_vpn_status() {
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "ProtonVPN Connection Status"
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log ""
+
+    # Check if service is running
+    if systemctl is-active --quiet me.proton.vpn.split_tunneling.service 2>/dev/null; then
+        log "✓ ProtonVPN daemon: running"
+    else
+        log "✗ ProtonVPN daemon: not running"
+    fi
+
+    # Check network interfaces for VPN
+    if ip link show | grep -q "proton"; then
+        log "✓ VPN tunnel: active"
+    else
+        log "⚠ VPN tunnel: not detected"
+    fi
+
+    # Check public IP (optional)
+    log ""
+    log "Public IP check:"
+    local public_ip
+    if public_ip=$(curl -s --max-time 5 https://ipinfo.io/ip 2>/dev/null); then
+        log "  IP: $public_ip"
+        local ip_info
+        if ip_info=$(curl -s --max-time 5 "https://ipinfo.io/$public_ip/json" 2>/dev/null); then
+            local org city country
+            org=$(echo "$ip_info" | jq -r '.org // "Unknown"' 2>/dev/null)
+            city=$(echo "$ip_info" | jq -r '.city // "Unknown"' 2>/dev/null)
+            country=$(echo "$ip_info" | jq -r '.country // "Unknown"' 2>/dev/null)
+            log "  Location: $city, $country"
+            log "  Provider: $org"
+            if echo "$org" | grep -qi "proton"; then
+                log "  ✓ Traffic appears to be routed through ProtonVPN"
+            fi
+        fi
+    else
+        log "  Unable to determine public IP"
+    fi
+    log ""
+}
+
 uninstall_protonvpn() {
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log "ProtonVPN Uninstallation"
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log ""
-    
+
     if [[ "${DRY_RUN:-0}" == "1" ]]; then
         log "[DRY RUN] Would perform the following:"
         log "[DRY RUN]   1. Stop ProtonVPN daemon service"
@@ -250,12 +351,12 @@ uninstall_protonvpn() {
     $(need_sudo) rm -f /etc/apt/sources.list.d/protonvpn-stable.list
     $(need_sudo) rm -f /usr/share/keyrings/proton-vpn-stable-archive-keyring.gpg
     log "  ✓ Repository and keyring removed"
-    
+
     log ""
     log "  → Updating package lists..."
     apt_safe update -qq
     log "  ✓ Package lists updated"
-    
+
     log ""
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log "✓ ProtonVPN Uninstalled Successfully"
@@ -266,7 +367,7 @@ uninstall_protonvpn() {
 main() {
     install_protonvpn
     local install_status=$?
-    
+
     if (( install_status == 0 )); then
         verify_protonvpn
     else
