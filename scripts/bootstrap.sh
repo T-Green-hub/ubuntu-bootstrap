@@ -2,7 +2,7 @@
 # Ubuntu LTS Bootstrap - Main Orchestrator
 # ThinkPad E16 Gen2 (AMD Ryzen 7) optimized, but hardware-agnostic
 # Idempotent, safe, evidence-based system setup
-# Version: 4.0.0
+# Version: 4.0.1
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -45,6 +45,9 @@ parse_args() {
                 LOG_DIR="$2"
                 shift 2
                 ;;
+            --version|-v)
+                echo "Ubuntu LTS Bootstrap v4.0.1" && exit 0
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -70,7 +73,7 @@ parse_args() {
 
 show_help() {
     cat <<EOF
-Ubuntu LTS Bootstrap v4.0.0
+Ubuntu LTS Bootstrap v4.0.1
 
 USAGE:
     $0 [OPTIONS]
@@ -80,6 +83,7 @@ OPTIONS:
     --dry-run           Show what would be done without making changes
     --yes, -y           Skip confirmation prompts
     --log-dir <path>    Log directory (default: \$HOME/bootstrap-logs/<timestamp>)
+    --version, -v       Show version and exit
     --help, -h          Show this help
 
 PROFILES:
@@ -564,7 +568,7 @@ main() {
     
     echo ""
     echo "═══════════════════════════════════════════════════════════"
-    echo "  Ubuntu LTS Bootstrap v4.0.0"
+    echo "  Ubuntu LTS Bootstrap v4.0.1"
     echo "  Profile: $PROFILE"
     if (( DRY_RUN == 1 )); then
         echo "  Mode: DRY RUN"

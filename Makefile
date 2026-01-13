@@ -21,17 +21,26 @@ help: ## Show targets
 
 # === New v4 Bootstrap Targets ===
 
-bootstrap: ## Run new v4 bootstrap (minimal profile, dry-run)
+bootstrap: ## Run new v4 bootstrap (minimal profile, dry-run mode - SAFE)
 > bash "$(DIR)/scripts/bootstrap.sh" --profile minimal --dry-run
+
+bootstrap-apply-minimal: ## APPLY minimal profile (make changes for real)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile minimal --yes
+
+bootstrap-apply-dev: ## APPLY dev profile (make changes for real)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile dev --yes
+
+bootstrap-apply-secure: ## APPLY secure profile (make changes for real)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile secure --yes
 
 bootstrap-check: ## Run new v4 health checker
 > bash "$(DIR)/scripts/checks/bootstrap_check.sh"
 
-bootstrap-dev: ## Run new v4 bootstrap (dev profile)
-> bash "$(DIR)/scripts/bootstrap.sh" --profile dev
+bootstrap-dev: ## Run new v4 bootstrap (dev profile, dry-run mode - SAFE)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile dev --dry-run
 
-bootstrap-secure: ## Run new v4 bootstrap (secure profile)
-> bash "$(DIR)/scripts/bootstrap.sh" --profile secure
+bootstrap-secure: ## Run new v4 bootstrap (secure profile, dry-run mode - SAFE)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile secure --dry-run
 
 # === Legacy Targets ===
 
