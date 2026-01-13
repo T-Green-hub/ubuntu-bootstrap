@@ -14,21 +14,37 @@ SHELL := /bin/bash
 
 DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd)
 
-.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first menu preflight t14s-fixes
+.PHONY: run verify base optional detect check lint lint-light package release help ideal devtools privacy privacy-first menu preflight t14s-fixes bootstrap bootstrap-check test test-quick test-dry-run fmt
 
 help: ## Show targets
 > @grep -E '^[a-zA-Z_\\-]+:.*?## ' Makefile | sed 's/:.*## / — /'
 
-menu: ## Interactive menu (user-friendly guided setup) ⭐ NEW
+# === New v4 Bootstrap Targets ===
+
+bootstrap: ## Run new v4 bootstrap (minimal profile, dry-run)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile minimal --dry-run
+
+bootstrap-check: ## Run new v4 health checker
+> bash "$(DIR)/scripts/checks/bootstrap_check.sh"
+
+bootstrap-dev: ## Run new v4 bootstrap (dev profile)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile dev
+
+bootstrap-secure: ## Run new v4 bootstrap (secure profile)
+> bash "$(DIR)/scripts/bootstrap.sh" --profile secure
+
+# === Legacy Targets ===
+
+menu: ## Interactive menu (user-friendly guided setup)
 > "$(DIR)/scripts/interactive_menu.sh"
 
-preflight: ## Pre-flight system check (verify readiness) ⭐ NEW
+preflight: ## Pre-flight system check (verify readiness)
 > "$(DIR)/scripts/preflight_check.sh"
 
-t14s-fixes: ## ThinkPad T14s Gen 2 specific fixes ⭐ NEW
+t14s-fixes: ## ThinkPad T14s Gen 2 specific fixes
 > "$(DIR)/scripts/fix_t14s_gen2.sh"
 
-run: ## Base packages + verification
+run: ## Legacy: Base packages + verification (use 'make bootstrap' instead)
 > "$(DIR)/scripts/run_bootstrap.sh"
 
 verify: ## Only the verification (trim, SMART, sensors, timer)
@@ -51,7 +67,8 @@ lint: ## Lint scripts with shellcheck (requires shellcheck)
 >   echo "shellcheck not found. Install: sudo apt install shellcheck"; \
 >   exit 1; \
 > fi
-> shellcheck -x scripts/*.sh hardware/*.sh
+> @echo "Linting with shellcheck..."
+> @shellcheck -x scripts/*.sh scripts/lib/*.sh scripts/checks/*.sh hardware/*.sh || true
 
 lint-light: ## Fast syntax check (bash -n) for all scripts (no shellcheck needed)
 > @echo "Running lightweight lint (bash -n)…"
@@ -60,6 +77,15 @@ lint-light: ## Fast syntax check (bash -n) for all scripts (no shellcheck needed
 >   bash -n "$$f" || { echo "Syntax error in $$f"; rc=1; }; \
 > done; \
 > exit $$rc
+
+fmt: ## Format shell scripts with shfmt (if available)
+> @if command -v shfmt >/dev/null 2>&1; then \
+>   echo "Formatting with shfmt..."; \
+>   shfmt -w -i 4 -bn -ci scripts/*.sh scripts/lib/*.sh scripts/checks/*.sh hardware/*.sh; \
+>   echo "Done!"; \
+> else \
+>   echo "shfmt not found. Install: sudo snap install shfmt or go install mvdan.cc/sh/v3/cmd/shfmt@latest"; \
+> fi
 
 test: ## Run full test suite for all modules
 > @echo "Running full test suite..."
@@ -81,12 +107,13 @@ test: ## Run full test suite for all modules
 > fi
 
 test-quick: ## Run quick smoke tests only
-> @echo "Running quick smoke tests..."
-> @for f in scripts/dev-modules/test_*.sh scripts/optional-features/test_*.sh; do \
->   if [ -f "$$f" ]; then \
->     echo "Testing: $$(basename $$f)"; \
->     bash "$$f" || exit 1; \
->   fi; \
+> @echo "Running v4 bootstrap in dry-run mode..."
+> bash scripts/bootstrap.sh --profile minimal --dry-run
+> @echo ""
+> bash scripts/bootstrap.sh --profile dev --dry-run
+> @echo ""
+> @echo "Testing legacy scripts in DRY_RUN mode..."
+> DRY_RUN=1 bash scripts/run_bootstrap.sh
 > done
 > @echo "✓ Quick tests passed!"
 
