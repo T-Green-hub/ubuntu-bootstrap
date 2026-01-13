@@ -5,10 +5,54 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# Timeouts and diagnostics
+TIMEOUT=30  # seconds per test
+MAX_ATTEMPTS=3
+HANG_CHECK_INTERVAL=5
+
 # Determine directories
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/.." && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Helper: Run command with timeout and diagnostics
+run_with_timeout() {
+    local timeout=$1
+    shift
+    local cmd=("$@")
+
+    echo "  [DEBUG] Running: ${cmd[*]}" >&2
+    echo "  [DEBUG] Timeout: ${timeout}s" >&2
+
+    # Use timeout if available, otherwise use background with kill
+    if command -v timeout >/dev/null 2>&1; then
+        if ! timeout "$timeout" "${cmd[@]}"; then
+            local exit_code=$?
+            if (( exit_code == 124 )); then
+                echo "  [ERROR] Command timed out after ${timeout}s" >&2
+                return 124
+            fi
+            return "$exit_code"
+        fi
+    else
+        # Fallback: run in background with manual timeout
+        "${cmd[@]}" &
+        local pid=$!
+        local count=0
+        while kill -0 "$pid" 2>/dev/null; do
+            if (( count >= timeout )); then
+                kill -TERM "$pid" 2>/dev/null || true
+                sleep 1
+                kill -KILL "$pid" 2>/dev/null || true
+                echo "  [ERROR] Command timed out after ${timeout}s (PID: $pid)" >&2
+                return 124
+            fi
+            sleep 1
+            ((count++))
+        done
+        wait "$pid" 2>/dev/null || return $?
+    fi
+}
 
 # Colors
 RED='\033[0;31m'
@@ -48,7 +92,7 @@ test_syntax_check() {
     local failed=0
     for script in "$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/lib/*.sh "$SCRIPT_DIR"/checks/*.sh "$SCRIPT_DIR"/tests/*.sh; do
         if [[ -f "$script" ]]; then
-            if bash -n "$script" 2>/dev/null; then
+            if run_with_timeout 5 bash -n "$script" 2>/dev/null; then
                 test_pass "$(basename "$script")"
             else
                 test_fail "$(basename "$script") - syntax error"
@@ -72,28 +116,28 @@ test_help_version() {
     echo ""
 
     # Bootstrap help
-    if bash "$SCRIPT_DIR/bootstrap.sh" --help >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --help >/dev/null 2>&1; then
         test_pass "bootstrap.sh --help"
     else
         test_fail "bootstrap.sh --help"
     fi
 
     # Bootstrap version
-    if bash "$SCRIPT_DIR/bootstrap.sh" --version >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --version >/dev/null 2>&1; then
         test_pass "bootstrap.sh --version"
     else
         test_fail "bootstrap.sh --version"
     fi
 
     # Checker help
-    if bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --help >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --help >/dev/null 2>&1; then
         test_pass "bootstrap_check.sh --help"
     else
         test_fail "bootstrap_check.sh --help"
     fi
 
     # Checker version
-    if bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --version >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --version >/dev/null 2>&1; then
         test_pass "bootstrap_check.sh --version"
     else
         test_fail "bootstrap_check.sh --version"
@@ -110,10 +154,10 @@ test_dry_run_profiles() {
 
     local profiles=("minimal" "dev" "secure")
     for profile in "${profiles[@]}"; do
-        local output_dir="/tmp/bs_${profile}_v404_$$"
+        local output_dir="/tmp/bs_${profile}_v405_$$"
         echo "Testing profile: $profile (output: $output_dir)"
 
-        if bash "$SCRIPT_DIR/bootstrap.sh" --profile "$profile" --dry-run --yes --output-dir "$output_dir" >/dev/null 2>&1; then
+        if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile "$profile" --dry-run --yes --output-dir "$output_dir" >/dev/null 2>&1; then
             # Verify artifacts exist
             if [[ -f "$output_dir/report.json" ]] && [[ -f "$output_dir/report.txt" ]] && [[ -f "$output_dir/system-info.txt" ]]; then
                 test_pass "Profile $profile: artifacts created"
@@ -137,10 +181,10 @@ test_health_checker() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    local output_dir="/tmp/ck_test_v404_$$"
+    local output_dir="/tmp/ck_test_v405_$$"
     echo "Running health checker (output: $output_dir)"
 
-    if bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --output-dir "$output_dir" >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --output-dir "$output_dir" >/dev/null 2>&1; then
         # Verify artifacts exist
         local json_file=$(ls "$output_dir"/health-check-*.json 2>/dev/null | head -1)
         local text_file=$(ls "$output_dir"/health-check-*.txt 2>/dev/null | head -1)
@@ -150,7 +194,7 @@ test_health_checker() {
 
             # Validate JSON
             if command -v python3 >/dev/null 2>&1; then
-                if python3 -m json.tool "$json_file" >/dev/null 2>&1; then
+                if run_with_timeout 5 python3 -m json.tool "$json_file" >/dev/null 2>&1; then
                     test_pass "Health checker: JSON valid"
                 else
                     test_fail "Health checker: JSON invalid"
@@ -177,7 +221,7 @@ test_print_plan() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    if bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --print-plan >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --print-plan >/dev/null 2>&1; then
         test_pass "Print-plan mode executed"
     else
         test_fail "Print-plan mode failed"
@@ -192,10 +236,10 @@ test_doctor_mode() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    local output_dir="/tmp/doctor_test_v404_$$"
+    local output_dir="/tmp/doctor_test_v405_$$"
 
     # Bootstrap doctor
-    if bash "$SCRIPT_DIR/bootstrap.sh" --doctor --output-dir "$output_dir" >/dev/null 2>&1; then
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --doctor --output-dir "$output_dir" >/dev/null 2>&1; then
         test_pass "Bootstrap doctor mode executed"
         rm -rf "$output_dir"
     else
@@ -203,8 +247,8 @@ test_doctor_mode() {
     fi
 
     # Checker doctor
-    output_dir="/tmp/checker_doctor_v404_$$"
-    if bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --doctor --output-dir "$output_dir" >/dev/null 2>&1; then
+    output_dir="/tmp/checker_doctor_v405_$$"
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --doctor --output-dir "$output_dir" >/dev/null 2>&1; then
         test_pass "Checker doctor mode executed"
         rm -rf "$output_dir"
     else
@@ -221,8 +265,8 @@ test_debug_trace() {
     echo ""
 
     # Debug mode
-    local output_dir="/tmp/debug_test_v404_$$"
-    if bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --dry-run --yes --debug --output-dir "$output_dir" >/dev/null 2>&1; then
+    local output_dir="/tmp/debug_test_v405_$$"
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --dry-run --yes --debug --output-dir "$output_dir" >/dev/null 2>&1; then
         test_pass "Debug mode executed"
         rm -rf "$output_dir"
     else
@@ -230,8 +274,8 @@ test_debug_trace() {
     fi
 
     # Trace mode
-    output_dir="/tmp/trace_test_v404_$$"
-    if bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --dry-run --yes --trace --output-dir "$output_dir" >/dev/null 2>&1; then
+    output_dir="/tmp/trace_test_v405_$$"
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/bootstrap.sh" --profile minimal --dry-run --yes --trace --output-dir "$output_dir" >/dev/null 2>&1; then
         if [[ -f "$output_dir/trace.log" ]]; then
             test_pass "Trace mode: trace.log created"
         else
@@ -251,8 +295,8 @@ test_bundle() {
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    local output_dir="/tmp/bundle_test_v404_$$"
-    if bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --bundle --output-dir "$output_dir" >/dev/null 2>&1; then
+    local output_dir="/tmp/bundle_test_v405_$$"
+    if run_with_timeout $TIMEOUT bash "$SCRIPT_DIR/checks/bootstrap_check.sh" --bundle --output-dir "$output_dir" >/dev/null 2>&1; then
         if [[ -f "${output_dir}.tar.gz" ]]; then
             test_pass "Bundle: tar.gz created"
             rm -f "${output_dir}.tar.gz"
@@ -296,7 +340,7 @@ print_summary() {
 main() {
     echo ""
     echo "═══════════════════════════════════════════════════════════"
-    echo "  Ubuntu Bootstrap - Self-Test Harness v4.0.4"
+    echo "  Ubuntu Bootstrap - Self-Test Harness v4.0.5"
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
