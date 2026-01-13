@@ -23,11 +23,20 @@ cd ubuntu-bootstrap
 # 2. Run bootstrap (minimal profile, dry-run first)
 bash scripts/bootstrap.sh --profile minimal --dry-run
 
+# Or use interactive mode
+bash scripts/bootstrap.sh --interactive
+
+# Or preview the execution plan
+bash scripts/bootstrap.sh --profile minimal --print-plan
+
 # 3. Run for real
 bash scripts/bootstrap.sh --profile minimal --yes
 
 # 4. Verify system health
 bash scripts/checks/bootstrap_check.sh
+
+# 5. Run doctor mode for extended checks
+bash scripts/checks/bootstrap_check.sh --doctor
 ```
 
 ## Profiles
@@ -77,11 +86,23 @@ bash scripts/bootstrap.sh --profile secure
 # Show help
 bash scripts/bootstrap.sh --help
 
+# Interactive mode (guided setup)
+bash scripts/bootstrap.sh --interactive
+
+# Print execution plan (preview without running)
+bash scripts/bootstrap.sh --profile minimal --print-plan
+
 # Dry-run (preview changes without making them)
 bash scripts/bootstrap.sh --profile minimal --dry-run
 
 # Run with specific profile
 bash scripts/bootstrap.sh --profile dev --yes
+
+# Debug mode with trace logging
+bash scripts/bootstrap.sh --profile minimal --dry-run --debug --trace
+
+# Doctor mode (preflight checks)
+bash scripts/bootstrap.sh --doctor
 
 # Custom log directory
 bash scripts/bootstrap.sh --profile minimal --log-dir /tmp/bootstrap-logs
@@ -96,8 +117,31 @@ bash scripts/checks/bootstrap_check.sh
 # Save to custom directory
 bash scripts/checks/bootstrap_check.sh --output-dir /tmp/health-checks
 
+# Doctor mode with extended checks
+bash scripts/checks/bootstrap_check.sh --doctor
+
+# Create bundle archive
+bash scripts/checks/bootstrap_check.sh --doctor --bundle
+
 # JSON output only
 bash scripts/checks/bootstrap_check.sh --json > health.json
+```
+
+### Post-Install Follow-Up
+- Review the targeted post-install guide for the E16 Gen2: [docs/POST_INSTALL_E16_GEN2.md](docs/POST_INSTALL_E16_GEN2.md)
+
+### CLI Installation (Optional)
+
+```bash
+# Install ubuntu-bootstrap command to ~/.local/bin
+bash scripts/install.sh
+
+# Then use system-wide
+ubuntu-bootstrap --help
+ubuntu-bootstrap --interactive
+
+# Uninstall
+bash scripts/install.sh --uninstall
 ```
 
 ## ThinkPad E16 Gen2 Specifics

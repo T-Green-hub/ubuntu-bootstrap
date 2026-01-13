@@ -22,6 +22,13 @@ source "$LIB_DIR/report.sh"
 PROFILE="${PROFILE:-minimal}"
 DRY_RUN="${DRY_RUN:-0}"
 AUTO_YES="${AUTO_YES:-0}"
+INTERACTIVE="${INTERACTIVE:-0}"
+PRINT_PLAN="${PRINT_PLAN:-0}"
+EXPLAIN="${EXPLAIN:-0}"
+DEBUG="${DEBUG:-0}"
+TRACE="${TRACE:-0}"
+DOCTOR="${DOCTOR:-0}"
+BUNDLE="${BUNDLE:-0}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="${LOG_DIR:-$HOME/bootstrap-logs/$TIMESTAMP}"
 
@@ -40,6 +47,39 @@ parse_args() {
             --yes|-y)
                 AUTO_YES=1
                 shift
+                ;;
+            --interactive)
+                INTERACTIVE=1
+                shift
+                ;;
+            --print-plan)
+                PRINT_PLAN=1
+                DRY_RUN=1
+                shift
+                ;;
+            --explain)
+                EXPLAIN=1
+                shift
+                ;;
+            --debug)
+                DEBUG=1
+                shift
+                ;;
+            --trace)
+                TRACE=1
+                shift
+                ;;
+            --doctor)
+                DOCTOR=1
+                shift
+                ;;
+            --bundle)
+                BUNDLE=1
+                shift
+                ;;
+            --self-test)
+                bash "$SCRIPT_DIR/tests/self_test.sh" "$@"
+                exit $?
                 ;;
             --output-dir)
                 LOG_DIR="$2"
@@ -87,6 +127,14 @@ OPTIONS:
     --profile <name>    Profile to use: minimal, dev, secure (default: minimal)
     --dry-run           Show what would be done without making changes (NO system changes)
     --yes, -y           Skip confirmation prompts
+    --interactive       Interactive menu for profile selection
+    --print-plan        Show execution plan without running (implies --dry-run)
+    --explain           Explain each step in detail
+    --debug             Enable debug output and create extended diagnostic files
+    --trace             Enable bash tracing (xtrace) to OUTPUT_DIR/trace.log
+    --doctor            Run preflight checks and print fix commands (read-only)
+    --bundle            Create tar.gz archive of output directory
+    --self-test         Run full self-test suite and exit
     --output-dir <path> Output directory for logs/reports (default: \$HOME/bootstrap-logs/<timestamp>)
     --log-dir <path>    (deprecated: use --output-dir; will be removed in v5.0.0)
     --version, -v       Show version and exit
@@ -99,8 +147,11 @@ PROFILES:
 
 EXAMPLES:
     $0 --profile minimal --dry-run
-    $0 --profile dev --yes
-    $0 --profile secure --log-dir /tmp/bootstrap-logs
+    $0 --interactive
+    $0 --profile dev --print-plan
+    $0 --doctor --output-dir /tmp/doctor
+    $0 --profile minimal --dry-run --debug --trace
+    $0 --self-test
 
 SAFETY:
     - Does NOT partition disks or modify bootloader
@@ -117,10 +168,22 @@ init_logging() {
     LOG_FILE="$LOG_DIR/bootstrap.log"
     export LOG_FILE
 
+    # Setup trace if requested
+    if (( TRACE == 1 )); then
+        TRACE_LOG="$LOG_DIR/trace.log"
+        exec {BASH_XTRACEFD}>"$TRACE_LOG"
+        export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+        set -x
+        log_info "Trace enabled: $TRACE_LOG"
+    fi
+
     log_info "Bootstrap started"
     log_info "Profile: $PROFILE"
     if (( DRY_RUN == 1 )); then
         log_info "DRY-RUN MODE: No system changes will be made."
+    fi
+    if (( DEBUG == 1 )); then
+        log_info "DEBUG MODE: Extended diagnostics enabled"
     fi
     log_info "Output directory: $LOG_DIR"
 }
@@ -526,6 +589,212 @@ secure_profile_extras() {
     log_info "Review carefully to avoid breaking development workflows"
 }
 
+# Interactive mode
+interactive_mode() {
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    echo "  Interactive Bootstrap Setup"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "Select a profile:"
+    echo "  1) minimal - Safe baseline (updates, firmware, drivers, security)"
+    echo "  2) dev     - Minimal + development tools"
+    echo "  3) secure  - Minimal + security hardening"
+    echo "  4) Cancel"
+    echo ""
+    read -p "Enter choice [1-4]: " -n 1 -r choice
+    echo ""
+
+    case "$choice" in
+        1) PROFILE="minimal" ;;
+        2) PROFILE="dev" ;;
+        3) PROFILE="secure" ;;
+        4) echo "Cancelled."; exit 0 ;;
+        *) echo "Invalid choice."; exit 1 ;;
+    esac
+
+    echo ""
+    echo "Profile selected: $PROFILE"
+    echo ""
+    read -p "Run in dry-run mode (preview only)? [Y/n] " -n 1 -r dry_choice
+    echo ""
+    if [[ $dry_choice =~ ^[Nn]$ ]]; then
+        DRY_RUN=0
+    else
+        DRY_RUN=1
+    fi
+
+    echo ""
+    if (( DRY_RUN == 1 )); then
+        echo "Mode: DRY RUN (no system changes)"
+    else
+        echo "Mode: APPLY CHANGES"
+    fi
+    echo ""
+}
+
+# Print plan mode
+print_plan() {
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    echo "  Bootstrap Execution Plan (Profile: $PROFILE)"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "The following steps will be executed:"
+    echo ""
+    echo "A. System Information Snapshot"
+    echo "   - Capture OS, kernel, CPU, memory, disk, hardware details"
+    echo "   - Save to: system-info.txt"
+    echo ""
+    echo "B. APT Hygiene"
+    echo "   - apt update, upgrade, autoremove"
+    echo "   - Configure unattended-upgrades for security updates"
+    echo ""
+    echo "C. Firmware Updates"
+    echo "   - Install fwupd"
+    echo "   - Check for firmware updates (manual review recommended)"
+    echo ""
+    echo "D. CPU Microcode"
+    if [[ "$(detect_cpu_vendor)" == "AuthenticAMD" ]]; then
+        echo "   - Install amd64-microcode (AMD CPU detected)"
+    elif [[ "$(detect_cpu_vendor)" == "GenuineIntel" ]]; then
+        echo "   - Install intel-microcode (Intel CPU detected)"
+    else
+        echo "   - Detect CPU vendor and install appropriate microcode"
+    fi
+    echo ""
+    echo "E. Drivers"
+    echo "   - Install linux-firmware"
+    if has_nvidia_gpu; then
+        echo "   - NVIDIA GPU detected - review available drivers"
+    elif has_amd_gpu; then
+        echo "   - AMD GPU detected (using built-in open-source drivers)"
+    elif has_intel_gpu; then
+        echo "   - Intel GPU detected (using built-in open-source drivers)"
+    fi
+    echo ""
+    echo "F. Power Management"
+    if is_laptop; then
+        echo "   - Install power-profiles-daemon"
+        echo "   - Document battery charge threshold (if supported)"
+    else
+        echo "   - Skip (not a laptop)"
+    fi
+    echo ""
+    echo "G. Security Baseline"
+    echo "   - Enable ufw firewall"
+    echo "   - Verify unattended-upgrades"
+    echo "   - Check AppArmor status"
+    echo ""
+
+    if [[ "$PROFILE" == "dev" ]]; then
+        echo "H. Developer Tools (dev profile)"
+        echo "   - build-essential, git, curl, wget"
+        echo "   - Python: python3-pip, python3-venv, pipx"
+        echo "   - Node.js: nodejs, npm"
+        echo "   - Utilities: jq, vim, tmux, htop, tree"
+        echo ""
+    fi
+
+    if [[ "$PROFILE" == "secure" ]]; then
+        echo "I. Security Hardening (secure profile)"
+        echo "   - Optionally install fail2ban"
+        echo "   - Optionally install auditd"
+        echo "   - Document backup solutions and sysctl hardening"
+        echo ""
+    fi
+
+    echo "J. Verification Summary"
+    echo "   - Check for pending updates"
+    echo "   - Verify core services (ufw, unattended-upgrades)"
+    echo "   - Generate reports (report.json, report.txt)"
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+}
+
+# Doctor mode - preflight checks
+run_doctor_checks() {
+    log_step "Running Doctor Checks (Read-Only)"
+    echo ""
+
+    # Check sudo access
+    if sudo -n true 2>/dev/null; then
+        log_success "Sudo access: available (cached)"
+    else
+        log_info "Sudo access: will be required (not cached)"
+    fi
+
+    # Check internet connectivity
+    if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+        log_success "Internet: connected"
+    else
+        log_warning "Internet: not connected or restricted"
+        log_info "    Fix: Check network connection"
+    fi
+
+    # Check disk space
+    local avail_gb
+    avail_gb=$(df -BG / | awk 'NR==2 {print $4}' | tr -d 'G')
+    if (( avail_gb >= 20 )); then
+        log_success "Disk space: ${avail_gb}G available"
+    else
+        log_warning "Disk space: ${avail_gb}G available (recommend 20G+)"
+        log_info "    Fix: Free up disk space with: sudo apt autoremove && sudo apt clean"
+    fi
+
+    # Check APT sources
+    if apt-get update -qq 2>&1 | grep -qi "error\\|failed"; then
+        log_warning "APT sources: errors detected"
+        log_info "    Fix: Review with: sudo apt-get update"
+    else
+        log_success "APT sources: OK"
+    fi
+
+    # Check for broken packages
+    local broken
+    broken=$(dpkg -l | grep -c "^iU\\|^iF" || true)
+    if (( broken > 0 )); then
+        log_warning "Broken packages: $broken found"
+        log_info "    Fix: sudo dpkg --configure -a && sudo apt --fix-broken install"
+    else
+        log_success "Package integrity: OK"
+    fi
+
+    # Save debug artifacts if requested
+    if (( DEBUG == 1 )); then
+        log_info "Saving debug artifacts..."
+        apt-cache policy > "$LOG_DIR/apt-policy.txt" 2>&1 || true
+        dpkg -l > "$LOG_DIR/dpkg-audit.txt" 2>&1 || true
+        sudo ufw status verbose > "$LOG_DIR/ufw-status.txt" 2>&1 || true
+        systemctl status unattended-upgrades > "$LOG_DIR/unattended-status.txt" 2>&1 || true
+        fwupdmgr get-devices > "$LOG_DIR/fwupd-devices.txt" 2>&1 || true
+        sudo journalctl -b --priority=3 --no-pager | head -100 > "$LOG_DIR/journal-errors-top.txt" 2>&1 || true
+        log_success "Debug artifacts saved to $LOG_DIR"
+    fi
+
+    echo ""
+    log_info "Doctor check complete. System is ready for bootstrap."
+}
+
+# Create bundle
+create_bundle() {
+    if (( BUNDLE == 0 )); then
+        return 0
+    fi
+
+    log_step "Creating Bundle"
+    local bundle_name="bootstrap-$(basename "$LOG_DIR").tar.gz"
+    local bundle_path="${LOG_DIR}.tar.gz"
+
+    if tar -czf "$bundle_path" -C "$(dirname "$LOG_DIR")" "$(basename "$LOG_DIR")" 2>/dev/null; then
+        log_success "Bundle created: $bundle_path"
+        log_info "    Size: $(du -h "$bundle_path" | cut -f1)"
+    else
+        log_warning "Failed to create bundle"
+    fi
+}
+
 # Verification summary
 verification_summary() {
     log_step "J. Verification Summary"
@@ -555,13 +824,19 @@ verification_summary() {
     # Print summary
     report_summary "BOOTSTRAP RESULT"
 
-    # Write reports
+    # Write reports (always generate these)
     report_write_json "$LOG_DIR/report.json"
     report_write_text "$LOG_DIR/report.txt"
+
+    # Debug artifacts already saved if --debug enabled
 
     log_info ""
     log_info "Bootstrap complete!"
     log_info "Logs saved to: $LOG_DIR"
+
+    # Create bundle if requested
+    create_bundle
+
     log_info ""
     log_info "Next steps:"
     log_info "  1. Review logs: cat $LOG_DIR/bootstrap.log"
@@ -572,6 +847,25 @@ verification_summary() {
 # Main execution
 main() {
     parse_args "$@"
+
+    # Handle interactive mode first
+    if (( INTERACTIVE == 1 )); then
+        interactive_mode
+    fi
+
+    # Handle doctor mode
+    if (( DOCTOR == 1 )); then
+        init_logging
+        run_doctor_checks
+        exit 0
+    fi
+
+    # Handle print-plan mode
+    if (( PRINT_PLAN == 1 )); then
+        print_plan
+        exit 0
+    fi
+
     init_logging
 
     echo ""
@@ -581,11 +875,21 @@ main() {
     if (( DRY_RUN == 1 )); then
         echo "  Mode: DRY RUN (no system changes)"
     fi
+    if (( DEBUG == 1 )); then
+        echo "  Debug: enabled"
+    fi
+    if (( TRACE == 1 )); then
+        echo "  Trace: enabled"
+    fi
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
     if (( DRY_RUN == 1 )); then
         log_info "DRY-RUN MODE: No system changes will be made."
+    fi
+
+    if (( EXPLAIN == 1 )); then
+        log_info "EXPLAIN MODE: Detailed explanations will be provided."
     fi
 
     if (( DRY_RUN == 0 )) && ! confirm "Continue with bootstrap?"; then

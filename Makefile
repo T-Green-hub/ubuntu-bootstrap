@@ -36,6 +36,9 @@ bootstrap-apply-secure: ## APPLY secure profile (make changes for real)
 bootstrap-check: ## Run new v4 health checker
 > bash "$(DIR)/scripts/checks/bootstrap_check.sh"
 
+bootstrap-check-doctor: ## Run health checker in doctor mode
+> bash "$(DIR)/scripts/checks/bootstrap_check.sh" --doctor
+
 bootstrap-dev: ## Run new v4 bootstrap (dev profile, dry-run mode - SAFE)
 > bash "$(DIR)/scripts/bootstrap.sh" --profile dev --dry-run
 
@@ -98,6 +101,22 @@ fmt: ## Format shell scripts with shfmt (if available)
 
 test: ## Run full test suite for all modules
 > @echo "Running full test suite..."
+> bash "$(DIR)/scripts/tests/self_test.sh"
+
+test-quick: ## Quick syntax check for all scripts
+> @echo "Running quick syntax check..."
+> @bash "$(DIR)/scripts/tests/self_test.sh" 2>&1 | grep -A 100 "Test: Bash Syntax Check" | head -50
+
+doctor: ## Run doctor checks (bootstrap + health checker)
+> @echo "Running doctor checks..."
+> bash "$(DIR)/scripts/bootstrap.sh" --doctor
+> bash "$(DIR)/scripts/checks/bootstrap_check.sh" --doctor
+
+install-cli: ## Install ubuntu-bootstrap CLI to ~/.local/bin
+> bash "$(DIR)/scripts/install.sh"
+
+uninstall-cli: ## Uninstall ubuntu-bootstrap CLI
+> bash "$(DIR)/scripts/install.sh" --uninstall
 > @rc=0; \
 > for f in scripts/dev-modules/test_*.sh scripts/optional-features/test_*.sh; do \
 >   if [ -f "$$f" ]; then \

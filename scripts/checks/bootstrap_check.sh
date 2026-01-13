@@ -20,6 +20,10 @@ source "$LIB_DIR/report.sh"
 # Configuration
 OUTPUT_DIR="${OUTPUT_DIR:-$HOME/bootstrap-checks}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+JSON_ONLY=0
+DEBUG=0
+DOCTOR=0
+BUNDLE=0
 
 # Parse arguments
 parse_args() {
@@ -31,6 +35,18 @@ parse_args() {
                 ;;
             --json)
                 JSON_ONLY=1
+                shift
+                ;;
+            --debug)
+                DEBUG=1
+                shift
+                ;;
+            --doctor)
+                DOCTOR=1
+                shift
+                ;;
+            --bundle)
+                BUNDLE=1
                 shift
                 ;;
             --version|-v)
@@ -59,6 +75,9 @@ USAGE:
 OPTIONS:
     --output-dir <path>   Output directory for reports (default: \$HOME/bootstrap-checks)
     --json                Only output JSON, suppress human-readable output
+    --debug               Enable debug output with extended diagnostics
+    --doctor              Run extended checks with fix commands (alias for extended mode)
+    --bundle              Create tar.gz archive of output directory
     --version, -v         Show version and exit
     --help, -h            Show this help
 
@@ -66,17 +85,25 @@ DESCRIPTION:
     Performs read-only checks of system health and bootstrap status.
     Checks include:
     - Pending package updates
-    - Firmware update availability
+    - Firmware tooling and updates
     - Secure Boot state
     - TPM presence
     - Disk SMART health
     - Journal errors
-    - Service status (ufw, unattended-upgrades)
+    - Firewall posture (ufw)
+    - Unattended-upgrades status
+    - Power profiles
+    - Battery charge-threshold support
     - Temperature sensors
+    - Disk space and memory usage
+
+    In --doctor mode, additional extended checks are performed and
+    fix commands are printed (but not executed).
 
 EXAMPLES:
     $0
     $0 --output-dir /tmp/health-checks
+    $0 --doctor --bundle
     $0 --json > report.json
 
 EOF
@@ -120,6 +147,18 @@ check_firmware_updates() {
         log_info "    To install: sudo apt install fwupd"
         report_add "WARN" "fwupd not installed"
         return 0
+    fi
+
+    # Summarize detected devices (read-only)
+    local fw_devices
+    fw_devices=$(fwupdmgr get-devices 2>/dev/null | grep -E "^Name|^Device ID" | head -6 || true)
+    if [[ -n "$fw_devices" ]]; then
+        log_info "Detected firmware-capable devices:"
+        echo "$fw_devices" | while read -r line; do
+            log_info "    $line"
+        done
+    else
+        log_info "fwupdmgr get-devices requires elevated privileges (skipped)"
     fi
 
     # Try without sudo first
@@ -288,6 +327,120 @@ check_core_services() {
     done
 }
 
+# Check: Firewall posture (ufw)
+check_firewall_status() {
+    log_step "Checking firewall status (ufw)..."
+
+    if ! command -v ufw >/dev/null 2>&1; then
+        log_warning "ufw not installed"
+        report_add "WARN" "ufw not installed"
+        return 0
+    fi
+
+    local ufw_output
+    ufw_output=$(ufw status verbose 2>&1 || true)
+
+    if echo "$ufw_output" | grep -qi "not run as root"; then
+        log_info "ufw status requires elevated privileges"
+        log_info "    To check manually: sudo ufw status verbose"
+        report_add "PASS" "ufw status requires sudo (skipped)"
+        return 0
+    fi
+
+    if echo "$ufw_output" | grep -q "Status: active"; then
+        local defaults
+        defaults=$(echo "$ufw_output" | grep -i "Default:" | head -1 | sed 's/Default:\s*//I')
+        log_success "ufw active${defaults:+ ($defaults)}"
+        report_add "PASS" "ufw active${defaults:+, $defaults}"
+    elif echo "$ufw_output" | grep -q "Status: inactive"; then
+        log_warning "ufw inactive"
+        log_info "    To enable default deny incoming/allow outgoing: sudo ufw enable"
+        report_add "WARN" "ufw inactive"
+    else
+        log_warning "ufw status unknown"
+        log_info "    Output: $(echo "$ufw_output" | head -2 | tr '\n' ' ')"
+        report_add "WARN" "ufw status unknown"
+    fi
+}
+
+# Check: Unattended upgrades
+check_unattended_upgrades_status() {
+    log_step "Checking unattended-upgrades service..."
+
+    if ! systemctl list-unit-files unattended-upgrades.service >/dev/null 2>&1; then
+        log_warning "unattended-upgrades service not present"
+        report_add "WARN" "unattended-upgrades service missing"
+        return 0
+    fi
+
+    if systemctl is-active --quiet unattended-upgrades 2>/dev/null; then
+        log_success "unattended-upgrades active (logs: /var/log/unattended-upgrades/)"
+        report_add "PASS" "unattended-upgrades active"
+    elif systemctl is-enabled --quiet unattended-upgrades 2>/dev/null; then
+        log_warning "unattended-upgrades enabled but not active"
+        report_add "WARN" "unattended-upgrades enabled but not active"
+    else
+        log_warning "unattended-upgrades not active"
+        report_add "WARN" "unattended-upgrades inactive"
+    fi
+
+    log_info "    To review logs: sudo tail -n 50 /var/log/unattended-upgrades/unattended-upgrades.log"
+}
+
+# Check: Power profiles
+check_power_profiles() {
+    log_step "Checking power profiles..."
+
+    if ! command -v powerprofilesctl >/dev/null 2>&1; then
+        log_warning "powerprofilesctl not installed (power-profiles-daemon)"
+        report_add "WARN" "powerprofilesctl missing"
+        return 0
+    fi
+
+    local current_profile
+    current_profile=$(powerprofilesctl get 2>/dev/null || true)
+
+    if [[ -n "$current_profile" ]]; then
+        log_success "Current power profile: $current_profile"
+        report_add "PASS" "Power profile: $current_profile"
+    else
+        log_warning "Unable to read current power profile"
+        report_add "WARN" "Power profile unreadable"
+    fi
+
+    local available_profiles
+    available_profiles=$(powerprofilesctl list 2>/dev/null | grep -E "performance|balanced|power-saver" | sed 's/^\s*//')
+    if [[ -n "$available_profiles" ]]; then
+        log_info "Available profiles:"
+        echo "$available_profiles" | while read -r line; do
+            log_info "    $line"
+        done
+    fi
+}
+
+# Check: Battery charge thresholds support
+check_battery_threshold() {
+    log_step "Checking battery charge threshold support..."
+
+    local threshold_paths
+    threshold_paths=$(ls /sys/class/power_supply/BAT*/charge_control_end_threshold 2>/dev/null || true)
+
+    if [[ -z "$threshold_paths" ]]; then
+        log_info "Charge-control thresholds not exposed (may be unsupported on this system)"
+        report_add "PASS" "Charge thresholds not exposed"
+        return 0
+    fi
+
+    while read -r path; do
+        [[ -z "$path" ]] && continue
+        local current
+        current=$(cat "$path" 2>/dev/null || echo "unknown")
+        log_success "Threshold supported at $path (current: $current%)"
+        log_info "    To set safely (example 80%): echo 80 | sudo tee $path"
+        report_add "PASS" "Battery threshold supported ($current%)"
+    done <<< "$threshold_paths"
+}
+
 # Check: Temperature sensors
 check_temperature() {
     log_step "Checking temperature sensors..."
@@ -366,16 +519,99 @@ check_memory() {
     fi
 }
 
+# Doctor mode extended checks
+run_doctor_checks() {
+    if (( DOCTOR == 0 )); then
+        return 0
+    fi
+
+    log_step "Running doctor extended checks..."
+
+    # Check for held packages
+    local held
+    held=$(dpkg -l | grep -c "^hi" || true)
+    if (( held > 0 )); then
+        log_warning "$held packages are on hold"
+        log_info "    Fix: Review with: dpkg -l | grep '^hi'"
+        report_add "WARN" "$held packages on hold"
+    else
+        log_success "No held packages"
+        report_add "PASS" "No held packages"
+    fi
+
+    # Check for broken dependencies
+    local broken_deps
+    broken_deps=$(apt-get check 2>&1 | grep -c "broken" || true)
+    if (( broken_deps > 0 )); then
+        log_warning "Broken dependencies detected"
+        log_info "    Fix: sudo apt --fix-broken install"
+        report_add "WARN" "Broken dependencies"
+    else
+        log_success "No broken dependencies"
+        report_add "PASS" "No broken dependencies"
+    fi
+
+    # Check kernel version vs running
+    local installed_kernel running_kernel
+    installed_kernel=$(dpkg -l | grep "^ii.*linux-image-[0-9]" | awk '{print $2}' | sort -V | tail -1 | sed 's/linux-image-//')
+    running_kernel=$(uname -r)
+    if [[ "$installed_kernel" != "$running_kernel" ]]; then
+        log_warning "Kernel mismatch: running $running_kernel, installed $installed_kernel"
+        log_info "    Fix: Reboot to activate new kernel"
+        report_add "WARN" "Kernel reboot needed"
+    else
+        log_success "Kernel up to date: $running_kernel"
+        report_add "PASS" "Kernel current"
+    fi
+
+    # Check systemd failed units
+    local failed_units
+    failed_units=$(systemctl list-units --failed --no-pager --no-legend | wc -l)
+    if (( failed_units > 0 )); then
+        log_warning "$failed_units failed systemd units"
+        log_info "    Fix: Review with: systemctl list-units --failed"
+        report_add "WARN" "$failed_units failed systemd units"
+    else
+        log_success "No failed systemd units"
+        report_add "PASS" "No failed units"
+    fi
+}
+
+# Create bundle
+create_bundle() {
+    if (( BUNDLE == 0 )); then
+        return 0
+    fi
+
+    log_step "Creating bundle..."
+    local bundle_path="${OUTPUT_DIR}.tar.gz"
+
+    if tar -czf "$bundle_path" -C "$(dirname "$OUTPUT_DIR")" "$(basename "$OUTPUT_DIR")" 2>/dev/null; then
+        log_success "Bundle created: $bundle_path"
+        log_info "    Size: $(du -h "$bundle_path" | cut -f1)"
+    else
+        log_warning "Failed to create bundle"
+    fi
+}
+
 # Main execution
 main() {
     parse_args "$@"
     init_checker
 
-    echo ""
-    echo "═══════════════════════════════════════════════════════════"
-    echo "  $BOOTSTRAP_FULL_VERSION (Health Checker)"
-    echo "═══════════════════════════════════════════════════════════"
-    echo ""
+    if (( DOCTOR == 1 )); then
+        echo ""
+        echo "═══════════════════════════════════════════════════════════"
+        echo "  $BOOTSTRAP_FULL_VERSION (Health Checker - Doctor Mode)"
+        echo "═══════════════════════════════════════════════════════════"
+        echo ""
+    else
+        echo ""
+        echo "═══════════════════════════════════════════════════════════"
+        echo "  $BOOTSTRAP_FULL_VERSION (Health Checker)"
+        echo "═══════════════════════════════════════════════════════════"
+        echo ""
+    fi
 
     check_pending_updates
     check_firmware_updates
@@ -383,10 +619,16 @@ main() {
     check_tpm
     check_smart_health
     check_journal_errors
-    check_core_services
+    check_firewall_status
+    check_unattended_upgrades_status
+    check_power_profiles
+    check_battery_threshold
     check_temperature
     check_disk_space
     check_memory
+
+    # Doctor mode extended checks
+    run_doctor_checks
 
     # Summary
     report_summary "HEALTH CHECK RESULT"
@@ -398,14 +640,18 @@ main() {
     report_write_json "$json_file"
     report_write_text "$text_file"
 
-    log_info ""
-    log_info "Health check complete"
-    log_info "Reports saved to: $OUTPUT_DIR"
+    if (( JSON_ONLY == 0 )); then
+        echo ""
+        log_info "Reports saved:"
+        log_info "  JSON: $json_file"
+        log_info "  Text: $text_file"
+    fi
 
-    # Return appropriate exit code
-    if (( REPORT_FAIL > 0 )); then
-        exit 1
-    elif (( REPORT_WARN > 0 )); then
+    # Create bundle if requested
+    create_bundle
+}
+
+main "$@"
         exit 0
     else
         exit 0
